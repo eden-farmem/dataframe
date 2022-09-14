@@ -1,7 +1,7 @@
 // Hossein Moein
-// September 13, 2017
+// September 9, 2020
 /*
-Copyright (c) 2019-2022, Hossein Moein
+Copyright (c) 2020-2022, Hossein Moein
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -27,66 +27,84 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <DataFrame/Vectors/HeteroVector.h>
+#pragma once
+
+#include <DataFrame/DataFrameStatsVisitors.h>
 
 // ----------------------------------------------------------------------------
 
 namespace hmdf
 {
 
-HeteroVector::HeteroVector ()  {
+struct  GroupbySum  {
 
-    clear_functions_.reserve(2);
-    copy_functions_.reserve(2);
-    move_functions_.reserve(2);
-}
-
-// ----------------------------------------------------------------------------
-
-HeteroVector::HeteroVector (const HeteroVector &that)  { *this = that; }
-HeteroVector::HeteroVector (HeteroVector &&that) noexcept { *this = std::move(that); }
+    template<typename T, typename I>
+    static inline SumVisitor<T, I>
+    get_aggregator()  { return (SumVisitor<T, I>()); }
+};
 
 // ----------------------------------------------------------------------------
 
-HeteroVector &HeteroVector::operator= (const HeteroVector &rhs)  {
+struct  GroupbyMean  {
 
-    if (&rhs != this)  {
-        clear();
-        clear_functions_ = rhs.clear_functions_;
-        copy_functions_ = rhs.copy_functions_;
-        move_functions_ = rhs.move_functions_;
-
-        for (auto &&copy_function : copy_functions_)
-            copy_function(rhs, *this);
-    }
-
-    return (*this);
-}
+    template<typename T, typename I>
+    static inline MeanVisitor<T, I>
+    get_aggregator()  { return (MeanVisitor<T, I>()); }
+};
 
 // ----------------------------------------------------------------------------
 
-HeteroVector &HeteroVector::operator= (HeteroVector &&rhs) noexcept {
+struct  GroupbyMax  {
 
-    if (&rhs != this)  {
-        clear();
-        clear_functions_ = std::move(rhs.clear_functions_);
-        copy_functions_ = std::move(rhs.copy_functions_);
-        move_functions_ = std::move(rhs.move_functions_);
-
-        for (auto &&move_function : move_functions_)
-            move_function(rhs, *this);
-    }
-
-    return (*this);
-}
+    template<typename T, typename I>
+    static inline MaxVisitor<T, I>
+    get_aggregator()  { return (MaxVisitor<T, I>()); }
+};
 
 // ----------------------------------------------------------------------------
 
-void HeteroVector::clear()  {
+struct  GroupbyMin  {
 
-    for (auto &&clear_func : clear_functions_)
-        clear_func (*this);
-}
+    template<typename T, typename I>
+    static inline MinVisitor<T, I>
+    get_aggregator()  { return (MinVisitor<T, I>()); }
+};
+
+// ----------------------------------------------------------------------------
+
+struct  GroupbyVar  {
+
+    template<typename T, typename I>
+    static inline VarVisitor<T, I>
+    get_aggregator()  { return (VarVisitor<T, I>()); }
+};
+
+// ----------------------------------------------------------------------------
+
+struct  GroupbyStd  {
+
+    template<typename T, typename I>
+    static inline StdVisitor<T, I>
+    get_aggregator()  { return (StdVisitor<T, I>()); }
+};
+
+// ----------------------------------------------------------------------------
+
+struct  GroupbySEM  {
+
+    template<typename T, typename I>
+    static inline SEMVisitor<T, I>
+    get_aggregator()  { return (SEMVisitor<T, I>()); }
+};
+
+// ----------------------------------------------------------------------------
+
+struct  GroupbyMedian  {
+
+    template<typename T, typename I>
+    static inline MedianVisitor<T, I>
+    get_aggregator()  { return (MedianVisitor<T, I>()); }
+};
 
 } // namespace hmdf
 
@@ -96,4 +114,4 @@ void HeteroVector::clear()  {
 // mode:C++
 // tab-width:4
 // c-basic-offset:4
-// End
+// End:

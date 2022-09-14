@@ -57,10 +57,7 @@ namespace hmdf
     DEFINE_VISIT_BASIC_TYPES \
     using result_type = std::vector<T>;
 
-template<typename T,
-         typename I = unsigned long,
-         typename =
-             typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+template<typename T, typename I = unsigned long>
 struct MeanVisitor {
 
     DEFINE_VISIT_BASIC_TYPES_2
@@ -72,6 +69,14 @@ struct MeanVisitor {
         mean_ += val;
         cnt_ += 1;
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { mean_ = 0; cnt_ = 0; }
     inline void post ()  {  }
     inline size_type get_count () const  { return (cnt_); }
@@ -92,10 +97,7 @@ private:
 
 // ----------------------------------------------------------------------------
 
-template<typename T,
-         typename I = unsigned long,
-         typename =
-             typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+template<typename T, typename I = unsigned long>
 struct GeometricMeanVisitor {
 
     DEFINE_VISIT_BASIC_TYPES_2
@@ -114,6 +116,13 @@ struct GeometricMeanVisitor {
     inline result_type get_result () const  {
 
         return (std::pow(mean_, value_type(1) / value_type(cnt_)));
+    }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
     }
 
     explicit GeometricMeanVisitor(bool skipnan = true)
@@ -143,6 +152,14 @@ struct HarmonicMeanVisitor {
         mean_ += value_type(1) / val;
         cnt_ += 1;
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { mean_ = 0; cnt_ = 0; }
     inline void post ()  {  }
     inline size_type get_count () const  { return (cnt_); }
@@ -164,10 +181,7 @@ private:
 
 // ----------------------------------------------------------------------------
 
-template<typename T,
-         typename I = unsigned long,
-         typename =
-             typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+template<typename T, typename I = unsigned long>
 struct SumVisitor {
 
     DEFINE_VISIT_BASIC_TYPES_2
@@ -178,7 +192,15 @@ struct SumVisitor {
 
         sum_ += val;
     }
-    inline void pre ()  { sum_ = 0; }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
+    inline void pre ()  { sum_ = value_type { }; }
     inline void post ()  {  }
     inline result_type get_result () const  { return (sum_); }
 
@@ -192,10 +214,7 @@ private:
 
 // ----------------------------------------------------------------------------
 
-template<typename T,
-         typename I = unsigned long,
-         typename =
-             typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+template<typename T, typename I = unsigned long>
 struct ProdVisitor {
 
     DEFINE_VISIT_BASIC_TYPES_2
@@ -206,6 +225,14 @@ struct ProdVisitor {
 
         prod_ *= val;
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { prod_ = 1; }
     inline void post ()  {  }
     inline result_type get_result () const  { return (prod_); }
@@ -241,6 +268,14 @@ struct MaxVisitor {
             is_first = false;
         }
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { is_first = true; }
     inline void post ()  {  }
     inline result_type get_result () const  { return (max_); }
@@ -279,6 +314,14 @@ struct MinVisitor {
             is_first = false;
         }
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { is_first = true; }
     inline void post ()  {  }
     inline result_type get_result () const  { return (min_); }
@@ -335,6 +378,14 @@ struct  NLargestVisitor {
 
         counter_ += 1;
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { counter_ = 0; min_index_ = -1; }
     inline void post ()  {  }
     inline const result_type &get_result () const  { return (items_); }
@@ -405,6 +456,14 @@ struct  NSmallestVisitor {
 
         counter_ += 1;
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { counter_ = 0; max_index_ = -1; }
     inline void post ()  {  }
     inline const result_type &get_result () const  { return (items_); }
@@ -459,6 +518,16 @@ struct CovVisitor {
         dot_prod2_ += (val2 * val2);
         cnt_ += 1;
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end,
+                H column_begin1, H column_end1,
+                H column_begin2, H column_end2)  {
+
+        while (column_begin1 < column_end1 && column_begin2 < column_end2)
+            (*this)(*idx_begin, *column_begin1++, *column_begin2++);
+    }
+
     inline void pre ()  {
 
         total1_ = total2_ = dot_prod_ = dot_prod1_ = dot_prod2_ = 0;
@@ -517,6 +586,14 @@ struct VarVisitor  {
 
         cov_ (idx, val, val);
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { cov_.pre(); }
     inline void post ()  { cov_.post(); }
     inline result_type get_result () const  { return (cov_.get_result()); }
@@ -544,6 +621,16 @@ struct BetaVisitor  {
 
         cov_ (idx, val1, benchmark);
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end,
+                H column_begin1, H column_end1,
+                H benchmark_begin, H benchmark_end)  {
+
+        while (column_begin1 < column_end1 && benchmark_begin < benchmark_end)
+            (*this)(*idx_begin, *column_begin1++, *benchmark_begin++);
+    }
+
     inline void pre ()  { cov_.pre(); }
     inline void post ()  { cov_.post(); }
     inline result_type get_result () const  {
@@ -574,6 +661,14 @@ struct StdVisitor   {
 
         var_ (idx, val);
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { var_.pre(); }
     inline void post ()  { var_.post(); }
     inline result_type get_result () const  {
@@ -604,6 +699,14 @@ struct SEMVisitor   {
 
         std_ (idx, val);
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  { std_.pre(); }
     inline void post ()  { std_.post(); }
     inline result_type get_result () const  {
@@ -634,6 +737,16 @@ struct TrackingErrorVisitor {
 
         std_ (idx, val1 - val2);
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end,
+                H column_begin1, H column_end1,
+                H column_begin2, H column_end2)  {
+
+        while (column_begin1 < column_end1 && column_begin2 < column_end2)
+            (*this)(*idx_begin, *column_begin1++, *column_begin2++);
+    }
+
     inline void pre ()  { std_.pre(); }
     inline void post ()  { std_.post();  }
     inline result_type get_result () const  { return (std_.get_result()); }
@@ -662,6 +775,16 @@ public:
 
         cov_ (idx, val1, val2);
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end,
+                H column_begin1, H column_end1,
+                H column_begin2, H column_end2)  {
+
+        while (column_begin1 < column_end1 && column_begin2 < column_end2)
+            (*this)(*idx_begin, *column_begin1++, *column_begin2++);
+    }
+
     inline void pre ()  { cov_.pre(); }
     inline void post ()  { cov_.post(); }
     inline result_type get_result () const  {
@@ -691,6 +814,16 @@ struct DotProdVisitor  {
 
         dot_prod_ += (val1 * val2);
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end,
+                H column_begin1, H column_end1,
+                H column_begin2, H column_end2)  {
+
+        while (column_begin1 < column_end1 && column_begin2 < column_end2)
+            (*this)(*idx_begin, *column_begin1++, *column_begin2++);
+    }
+
     inline void pre ()  { dot_prod_ = value_type(0); }
     inline void post ()  {  }
     inline result_type get_result () const  { return (dot_prod_); }
@@ -935,6 +1068,14 @@ struct StatsVisitor  {
             (term1 * delta_n * value_type(n_ - 2) - 3.0 * delta_n * m2_);
         m2_ += term1;
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end, H column_begin, H column_end)  {
+
+        while (column_begin < column_end)
+            (*this)(*idx_begin, *column_begin++);
+    }
+
     inline void pre ()  {
 
         n_ = 0;
@@ -1002,6 +1143,16 @@ public:
         y_stats_(idx, y);
         n_ += 1;
     }
+    template <typename K, typename H>
+    inline void
+    operator() (K idx_begin, K idx_end,
+                H x_begin, H x_end,
+                H y_begin, H y_end)  {
+
+        while (x_begin < x_end && y_begin < y_end)
+            (*this)(*idx_begin, *x_begin++, *y_begin++);
+    }
+
     inline void pre ()  {
 
         n_ = 0;
@@ -1525,10 +1676,7 @@ private:
 
 // ----------------------------------------------------------------------------
 
-template<typename T,
-         typename I = unsigned long,
-         typename =
-             typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+template<typename T, typename I = unsigned long>
 struct KthValueVisitor  {
 
     DEFINE_VISIT_BASIC_TYPES_2
@@ -1604,10 +1752,9 @@ private:
 
 // ----------------------------------------------------------------------------
 
-template<typename T,
-         typename I = unsigned long,
-         typename =
-             typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+template <typename T> concept Addable = requires(T x) { x + x; };
+
+template<typename T, typename I = unsigned long>
 struct MedianVisitor  {
 
     DEFINE_VISIT_BASIC_TYPES_2
@@ -1620,22 +1767,16 @@ struct MedianVisitor  {
                 const H &values_begin,
                 const H &values_end)  {
 
-        const size_type                         vec_size =
-            std::distance(values_begin, values_end);
-        KthValueVisitor<value_type, index_type> kv_visitor (vec_size >> 1);
-
-
-        kv_visitor.pre();
-        kv_visitor(idx_begin, idx_end, values_begin, values_end);
-        kv_visitor.post();
-        result_ = kv_visitor.get_result();
-        if (! (vec_size & 0x0001))  { // even
-            KthValueVisitor<value_type, I>   kv_visitor2 ((vec_size >> 1) + 1);
-
-            kv_visitor2.pre();
-            kv_visitor2(idx_begin, idx_end, values_begin, values_end);
-            kv_visitor2.post();
-            result_ = (result_ + kv_visitor2.get_result()) / value_type(2);
+        std::vector<typename H::value_type> tmp(values_begin, values_end);
+        const size_type vec_size = tmp.size();
+        std::nth_element(tmp.begin(), tmp.begin() + vec_size / 2, tmp.end());
+        result_ = tmp[tmp.size() / 2];
+        if constexpr (Addable<T>) {
+            if (tmp.size() % 2 == 0) {
+                std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2 - 1,
+                                 tmp.end());
+                result_ = (result_ + tmp[tmp.size() / 2 - 1]) / 2;
+            }
         }
     }
     inline void pre ()  { result_ = value_type(); }
@@ -1649,16 +1790,13 @@ private:
 
 // ----------------------------------------------------------------------------
 
-template<typename T,
-         typename I = unsigned long,
-         typename =
-             typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+template<typename T, typename I = unsigned long>
 struct QuantileVisitor  {
 
     DEFINE_VISIT_BASIC_TYPES_2
 
     QuantileVisitor () = default;
-    QuantileVisitor (value_type quantile, quantile_policy q_policy)
+    QuantileVisitor (double quantile, quantile_policy q_policy)
         : qt_(quantile), policy_(q_policy)  {   }
 
     template <typename K, typename H>
@@ -1739,7 +1877,7 @@ struct QuantileVisitor  {
 private:
 
     result_type             result_ {  };
-    const result_type       qt_ { 0.5  };
+    const double            qt_ { 0.5  };
     const quantile_policy   policy_ { quantile_policy::mid_point };
 };
 
@@ -2358,101 +2496,6 @@ private:
     result_type         sigmoids_ {  };
     const sigmoid_type  sigmoid_type_;
 };
-
-// ----------------------------------------------------------------------------
-
-struct GroupbySum
-    : HeteroVector::visitor_base<int, double, long, std::string>  {
-
-private:
-
-    int             int_sum { 0 };
-    unsigned int    uint_sum { 0 };
-    double          double_sum { 0.0 };
-    long            long_sum { 0 };
-    unsigned long   ulong_sum { 0 };
-    std::string     str_sum { };
-
-public:
-
-    template<typename T>
-    void
-    operator() (const unsigned long &ts, const char *name, const T &datum)  {
-
-        return;
-    }
-
-    void reset ()  {
-
-        int_sum = 0;
-        uint_sum = 0;
-        double_sum = 0.0;
-        long_sum = 0;
-        ulong_sum = 0;
-        str_sum.clear();
-    }
-
-    template<typename T> void get_value (T &) const  { return; }
-};
-
-// -------------------------------------
-
-template<>
-inline void GroupbySum::
-operator() (const unsigned long &ts,
-            const char *name,
-            const int &datum)  { int_sum += datum; }
-template<>
-inline void GroupbySum::
-operator() (const unsigned long &ts,
-            const char *name,
-            const unsigned int &datum)  { uint_sum += datum; }
-template<>
-inline void GroupbySum::
-operator() (const unsigned long &ts,
-            const char *name,
-            const double &datum)  { double_sum += datum; }
-template<>
-inline void GroupbySum::
-operator() (const unsigned long &ts,
-            const char *name,
-            const long &datum)  { long_sum += datum; }
-template<>
-inline void GroupbySum::
-operator() (const unsigned long &ts,
-            const char *name,
-            const unsigned long &datum)  { ulong_sum += datum; }
-template<>
-inline void GroupbySum::
-operator() (const unsigned long &ts,
-            const char *name,
-            const std::string &datum)  {
-
-    if (str_sum.empty())
-        str_sum += datum;
-    else  {
-        str_sum += '|';
-        str_sum += datum;
-    }
-}
-
-// -------------------------------------
-
-template<>
-inline void GroupbySum::get_value<int> (int &v) const  { v = int_sum; }
-template<>
-inline void GroupbySum::
-get_value<unsigned int> (unsigned int &v) const  { v = uint_sum; }
-template<>
-inline void GroupbySum::get_value<double> (double &v) const  { v = double_sum; }
-template<>
-inline void GroupbySum::get_value<long> (long &v) const  { v = long_sum; }
-template<>
-inline void GroupbySum::
-get_value<unsigned long>(unsigned long &v) const { v = ulong_sum; }
-template<>
-inline void GroupbySum::
-get_value<std::string> (std::string &v) const  { v = str_sum; }
 
 } // namespace hmdf
 

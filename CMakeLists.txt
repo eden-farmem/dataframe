@@ -1,10 +1,11 @@
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.14)
 project (DataFrame VERSION 1.0.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Produce cmpile_commands.json
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts")
 
 # We use:
 # - InstallBasicPackageFiles
@@ -95,6 +96,7 @@ set(${LIBRARY_TARGET_NAME}_HDR
   include/DataFrame/DataFrameMLVisitors.h
   include/DataFrame/DataFrameFinancialVisitors.h
   include/DataFrame/DataFrameTransformVisitors.h
+  include/DataFrame/GroupbyAggregators.h
   include/DataFrame/DataFrameTypes.h
   include/DataFrame/RandGen.h
   include/DataFrame/DataFrameOperators.h
@@ -218,6 +220,12 @@ endif(MSVC)
 # Add the uninstall target
 include(AddUninstallTarget)
 
+# Build the app binary
+add_executable(main  app/main.cc)
+
+# Link the DataFrame library to the app binary
+target_link_libraries(main DataFrame)
+
 # Build the test binary
 add_executable(dataframe_tester  test/dataframe_tester.cc)
 add_executable(dataframe_tester_2  test/dataframe_tester_2.cc)
@@ -252,6 +260,7 @@ if (UNIX)
   # Find pthreads library
   set(THREADS_PREFER_PTHREAD_FLAG ON)
   find_package(Threads REQUIRED)
+  target_link_libraries(main Threads::Threads)
   target_link_libraries(dataframe_tester Threads::Threads)
   target_link_libraries(dataframe_tester_2 Threads::Threads)
   target_link_libraries(dataframe_performance Threads::Threads)
@@ -262,6 +271,7 @@ if (UNIX)
 endif (UNIX)
 
 if (UNIX AND NOT APPLE)
+  target_link_libraries(main rt)
   target_link_libraries(dataframe_tester rt)
   target_link_libraries(dataframe_tester_2 rt)
   target_link_libraries(dataframe_performance rt)
@@ -302,6 +312,10 @@ add_test(NAME gen_rand_tester
 
 message("-- Copying files for testing")
 # Ctest require this files in the build dir, on all platforms
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test/standard.csv
+                   ${CMAKE_CURRENT_BINARY_DIR}/standard.csv)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy
                    ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.csv

@@ -1,4 +1,4 @@
-// Hossein Moein
+// hossein Moein
 // July 24, 2019
 /*
 Copyright (c) 2019-2022, Hossein Moein
@@ -28,6 +28,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <DataFrame/DataFrame.h>
+#include <CSV/csv.hpp>
+#include <simple_time.hpp>
 
 // ----------------------------------------------------------------------------
 
@@ -89,6 +91,10 @@ write (S &o, bool values_only, io_format iof) const  {
             o << (iof == io_format::csv
                       ? "<DateTime>:"
                       : "\"T\":\"DateTime\",");
+		else if (typeid(IndexType) == typeid(char))
+            o << (iof == io_format::csv ? "<char>:" : "\"T\":\"char\",");
+		else if (typeid(IndexType) == typeid(SimpleTime))
+            o << (iof == io_format::csv ? "<Time>:" : "\"T\":\"Time\",");
         else
             o << (iof == io_format::csv ? "<N/A>:" : "\"T\":\"N/A\",");
 

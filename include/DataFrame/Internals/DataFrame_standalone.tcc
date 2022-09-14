@@ -38,19 +38,12 @@ _sort_by_sorted_index_(std::vector<T> &to_be_sorted,
                        std::vector<size_t> &sorting_idxs,
                        size_t idx_s)  {
 
-    if (idx_s > 0)  {
-        idx_s -= 1;
-        for (size_t i = 0; i < idx_s; ++i)  {
-            // while the element i is not yet in place
-            while (sorting_idxs[i] != sorting_idxs[sorting_idxs[i]])  {
-                // swap it with the element at its final place
-                const size_t    j = sorting_idxs[i];
-
-                std::swap(to_be_sorted[j], to_be_sorted[sorting_idxs[j]]);
-                std::swap(sorting_idxs[i], sorting_idxs[j]);
-            }
-        }
+    std::vector<T> tmp;
+    tmp.resize(sorting_idxs.size());
+    for (uint64_t i = 0; i < sorting_idxs.size(); i++) {
+        tmp[i] = to_be_sorted[sorting_idxs[i]];
     }
+    to_be_sorted = std::move(tmp);
 }
 
 // ----------------------------------------------------------------------------

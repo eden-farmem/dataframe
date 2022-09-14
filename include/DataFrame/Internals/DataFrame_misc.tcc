@@ -28,6 +28,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <DataFrame/DataFrame.h>
+#include <CSV/csv.hpp>
+#include "simple_time.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -172,25 +174,32 @@ template<typename T>
 void
 DataFrame<I, H>::groupby_functor_<F, Ts ...>::operator() (const T &vec)  {
 
-    for (std::size_t i = begin; i < end && i < vec.size(); ++i)
-        functor (indices, name, vec[i]);
-
     if (! ::strcmp(name, DF_INDEX_COL_NAME))  {
-        IndexType   v;
+        auto    visitor = functor.template get_aggregator<I, I>();
 
-        functor.get_value(v);
-        df.append_index(v);
+        visitor.pre();
+        visitor(index_vec.begin() + begin, index_vec.begin() + end,
+                index_vec.begin() + begin, index_vec.begin() + end);
+        visitor.post();
+
+        df.append_index(visitor.get_result());
     }
     else  {
         using VecType = typename std::remove_reference<T>::type;
         using ValueType = typename VecType::value_type;
 
-        ValueType   v;
+        auto                visitor =
+            functor.template get_aggregator<ValueType, I>();
+        const std::size_t   vec_end = std::min(end, vec.size());
 
-        functor.get_value(v);
-        df.append_column<ValueType>(name, v, nan_policy::dont_pad_with_nans);
+        visitor.pre();
+        visitor(index_vec.begin() + begin, index_vec.begin() + vec_end,
+                vec.begin() + begin, vec.begin() + vec_end);
+        visitor.post();
+
+        df.append_column<ValueType>(name, visitor.get_result(),
+                                    nan_policy::dont_pad_with_nans);
     }
-
     return;
 }
 
@@ -215,18 +224,20 @@ DataFrame<I, H>::bucket_functor_<F, Ts ...>::operator() (const T &vec)  {
                 marker = i;
             }
 
+    auto    visitor = functor.template get_aggregator<ValueType, I>();
+
+    visitor.pre();
     for (std::size_t i = 0, marker = 0; i < ts_s; ++i)  {
         if (indices[i] - indices[marker] >= interval)  {
-            ValueType   v;
-
-            functor.get_value(v);
+            visitor.post();
             df.append_column<ValueType>(name,
-                                        v,
+                                        visitor.get_result(),
                                         nan_policy::dont_pad_with_nans);
-            functor.reset();
+            visitor.pre();
             marker = i;
         }
-        functor (indices[i], name, vec[i]);
+        visitor(indices.begin() + i, indices.begin() + i + 1,
+                vec.begin() + i, vec.begin() + i + 1);
     }
 
     return;
@@ -273,6 +284,10 @@ DataFrame<I, H>::print_csv_functor_<Ts ...>::operator() (const T &vec)  {
             os << "<bool>:";
         else if (typeid(ValueType) == typeid(DateTime))
             os << "<DateTime>:";
+		else if (typeid(ValueType) == typeid(char))
+			os << "<char>:";
+		else if (typeid(ValueType) == typeid(SimpleTime))
+			os << "<Time>:";
         else
             os << "<N/A>:";
     }
@@ -326,6 +341,10 @@ DataFrame<I, H>::print_json_functor_<Ts ...>::operator() (const T &vec)  {
             os << "\"T\":\"bool\",";
         else if (typeid(ValueType) == typeid(DateTime))
             os << "\"T\":\"DateTime\",";
+		else if (typeid(ValueType) == typeid(char))
+            os << "\"T\":\"char\",";
+		else if (typeid(ValueType) == typeid(SimpleTime))
+            os << "\"T\":\"Time\",";
         else
             os << "\"T\":\"N/A\",";
     }

@@ -56,6 +56,7 @@ std::vector<T> &HeteroVector::get_vector()  {
         move_functions_.emplace_back (
             [](HeteroVector &from, HeteroVector &to)  {
                 vectors_<T>[&to] = std::move(vectors_<T>[&from]);
+                vectors_<T>.erase(vectors_<T>.find(&from));
             });
 
         iter = vectors_<T>.emplace (this, std::vector<T>()).first;

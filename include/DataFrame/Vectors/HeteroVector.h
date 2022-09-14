@@ -51,12 +51,12 @@ public:
 
     HeteroVector();
     HeteroVector(const HeteroVector &that);
-    HeteroVector(HeteroVector &&that);
+    HeteroVector(HeteroVector &&that) noexcept;
 
     ~HeteroVector() { clear(); }
 
     HeteroVector &operator= (const HeteroVector &rhs);
-    HeteroVector &operator= (HeteroVector &&rhs);
+    HeteroVector &operator= (HeteroVector &&rhs) noexcept;
 
     template<typename T>
     std::vector<T> &get_vector();

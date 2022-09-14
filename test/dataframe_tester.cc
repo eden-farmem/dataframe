@@ -25,13 +25,16 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <CSV/csv.hpp>
 #include <DataFrame/DataFrame.h>
 #include <DataFrame/DataFrameOperators.h>
 #include <DataFrame/DataFrameStatsVisitors.h>
 #include <DataFrame/DataFrameMLVisitors.h>
 #include <DataFrame/DataFrameFinancialVisitors.h>
+#include <DataFrame/GroupbyAggregators.h>
 #include <DataFrame/RandGen.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -364,7 +367,7 @@ static void test_haphazard()  {
                     int,
                     unsigned long,
                     std::string,
-                    double>(GroupbySum());
+                    double>(GroupbySum(), DF_INDEX_COL_NAME);
 
     dfxx.write<std::ostream,
                int,
@@ -5109,6 +5112,23 @@ static void test_concat()  {
 
 // -----------------------------------------------------------------------------
 
+static void test_read_csv()
+{
+    std::cout << "\nTesting read_csv( ) ..." << std::endl;
+    auto df_0 =
+        read_csv<0, int, std::string, std::string, std::string, std::string, std::string,
+                 std::string, std::string>("standard.csv", "idx", "oci", "citing", "cited",
+                                           "creation", "timespan", "journal_sc", "author_sc");
+    df_0.write<std::ostream, int, std::string>(std::cout, false, io_format::json);
+    auto df_1 =
+        read_csv<-1, int, std::string, std::string, std::string, std::string, std::string,
+                 std::string, std::string>("standard.csv", "idx", "oci", "citing", "cited",
+                                           "creation", "timespan", "journal_sc", "author_sc");
+    df_1.write<std::ostream, int, std::string>(std::cout, false, io_format::json);
+}
+
+// -----------------------------------------------------------------------------
+
 int main(int argc, char *argv[]) {
 
     test_haphazard();
@@ -5188,6 +5208,7 @@ int main(int argc, char *argv[]) {
     test_VWBAS();
     test_self_concat();
     test_concat();
+    test_read_csv();
 
     return (0);
 }
