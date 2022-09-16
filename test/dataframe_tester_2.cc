@@ -946,7 +946,7 @@ int main(int argc, char *argv[]) {
     test_SigmoidVisitor();
     test_combine();
     test_RSIVisitor();
-    test_groupby();	
+    test_groupby();
 
     return (0);
 }

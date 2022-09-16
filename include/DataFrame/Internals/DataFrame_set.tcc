@@ -27,9 +27,14 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "dataframe_vector.hpp"
+#include "deref_scope.hpp"
+#include "manager.hpp"
+
 #include <DataFrame/DataFrame.h>
 
 #include <cstring>
+#include <memory>
 
 // ----------------------------------------------------------------------------
 
@@ -38,7 +43,9 @@ namespace hmdf
 
 template<typename I, typename  H>
 template<typename T>
-std::vector<T> &DataFrame<I, H>::create_column (const char *name)  {
+far_memory::DataFrameVector<T> &
+DataFrame<I, H>::create_column (far_memory::FarMemManager *manager,
+								const char *name)  {
 
     static_assert(std::is_base_of<HeteroVector, DataVec>::value,
                   "Only a StdDataFrame can call create_column()");
@@ -52,7 +59,7 @@ std::vector<T> &DataFrame<I, H>::create_column (const char *name)  {
 
     DataVec         &hv = data_.back();
     const SpinGuard guard(lock_);
-    std::vector<T>  &vec = hv.template get_vector<T>();
+    auto& vec = hv.template get_vector<T>(manager);
 
     // vec.resize(indices_.size(), _get_nan<T>());
     return (vec);
@@ -148,7 +155,8 @@ retype_column (const char *name,
 template<typename I, typename  H>
 template<typename ... Ts>
 typename DataFrame<I, H>::size_type
-DataFrame<I, H>::load_data (IndexVecType &&indices, Ts&& ... args)  {
+DataFrame<I, H>::load_data (far_memory::FarMemManager *manager,
+                            IndexVecType &&indices, Ts&& ... args)  {
 
     static_assert(std::is_base_of<HeteroVector, DataVec>::value,
                   "Only a StdDataFrame can call load_data()");
@@ -158,8 +166,8 @@ DataFrame<I, H>::load_data (IndexVecType &&indices, Ts&& ... args)  {
     // const size_type tuple_size =
     //     std::tuple_size<decltype(args_tuple)>::value;
     auto            fc =
-        [this, &cnt](auto &pa) mutable -> void {
-            cnt += this->_load_pair(pa);
+        [manager, this, &cnt](auto &pa) mutable -> void {
+            cnt += this->_load_pair(manager, pa);
         };
 
     for_each_in_tuple_ (args_tuple, fc);
@@ -178,7 +186,7 @@ DataFrame<I, H>::load_index(const ITR &begin, const ITR &end)  {
                   "Only a StdDataFrame can call load_index()");
 
     indices_.clear();
-    indices_.insert (indices_.end(), begin, end);
+    indices_.assign(begin, end);
     return (indices_.size());
 }
 
@@ -306,8 +314,9 @@ template<typename I, typename  H>
 template<typename T, typename ITR>
 typename DataFrame<I, H>::size_type
 DataFrame<I, H>::
-load_column (const char *name,
-             Index2D<const ITR &>
+load_column (far_memory::FarMemManager *manager,
+             const char *name,
+             Index2D<const ITR>
              range, nan_policy padding)  {
 
     size_type       s = std::distance(range.begin, range.end);
@@ -325,28 +334,33 @@ load_column (const char *name,
                  s, idx_s);
         throw InconsistentData (buffer);
     }
-
     const auto      iter = column_tb_.find (name);
-    std::vector<T>  *vec_ptr = nullptr;
+    far_memory::DataFrameVector<T>* vec_ptr = nullptr;
 
-    if (iter == column_tb_.end())
-        vec_ptr = &(create_column<T>(name));
+    if (iter == column_tb_.end()) {
+        vec_ptr = &(create_column<T>(manager, name));
+    }
     else  {
         DataVec         &hv = data_[iter->second];
         const SpinGuard guard(lock_);
 
-        vec_ptr = &(hv.template get_vector<T>());
+        vec_ptr = &(hv.template get_vector<T>(manager));
     }
 
     vec_ptr->clear();
-    vec_ptr->insert (vec_ptr->end(), range.begin, range.end);
+    vec_ptr->assign (range.begin, range.end);
 
     size_type   ret_cnt = s;
 
     s = vec_ptr->size();
     if (padding == nan_policy::pad_with_nans && s < idx_s)  {
+        constexpr auto kNumEntriesPerScope = 1024;
+		far_memory::DerefScope scope;
         for (size_type i = 0; i < idx_s - s; ++i)  {
-            vec_ptr->push_back (std::move(_get_nan<T>()));
+            if (unlikely(i % kNumEntriesPerScope == 0)) {
+                scope.renew();
+            }
+            vec_ptr->push_back (scope, std::move(_get_nan<T>()));
             ret_cnt += 1;
         }
     }
@@ -381,7 +395,8 @@ template<typename I, typename  H>
 template<typename T>
 typename DataFrame<I, H>::size_type
 DataFrame<I, H>::
-load_column (const char *name, std::vector<T> &&data, nan_policy padding)  {
+load_column (far_memory::FarMemManager *manager, const char *name,
+			 far_memory::DataFrameVector<T> &&data, nan_policy padding)  {
 
     const size_type idx_s = indices_.size();
     const size_type data_s = data.size();
@@ -402,22 +417,27 @@ load_column (const char *name, std::vector<T> &&data, nan_policy padding)  {
     size_type   ret_cnt = data_s;
 
     if (padding == nan_policy::pad_with_nans && data_s < idx_s)  {
+        constexpr auto kNumEntriesPerScope = 1024;
+		far_memory::DerefScope scope;
         for (size_type i = 0; i < idx_s - data_s; ++i)  {
-            data.push_back (std::move(_get_nan<T>()));
+			if (unlikely(i % kNumEntriesPerScope == 0)) {
+                scope.renew();
+			}
+            data.push_back(scope, std::move(_get_nan<T>()));
             ret_cnt += 1;
         }
     }
 
     const auto      iter = column_tb_.find (name);
-    std::vector<T>  *vec_ptr = nullptr;
+    far_memory::DataFrameVector<T>* vec_ptr = nullptr;
 
     if (iter == column_tb_.end())
-        vec_ptr = &(create_column<T>(name));
+        vec_ptr = &(create_column<T>(manager, name));
     else  {
         DataVec         &hv = data_[iter->second];
         const SpinGuard guard(lock_);
 
-        vec_ptr = &(hv.template get_vector<T>());
+        vec_ptr = &(hv.template get_vector<T>(manager));
     }
 
     *vec_ptr = std::move(data);
@@ -487,11 +507,12 @@ template<typename I, typename  H>
 template<typename T>
 typename DataFrame<I, H>::size_type
 DataFrame<I, H>::
-load_column (const char *name,
-             const std::vector<T> &data,
+load_column (far_memory::FarMemManager *manager, const char *name,
+             const far_memory::DataFrameVector<T> &data,
              nan_policy padding)  {
 
-    return (load_column<T>(name, { data.begin(), data.end() }, padding));
+    return (load_column<T>(manager, name, { data.begin(), data.end() },
+						   padding));
 }
 
 // ----------------------------------------------------------------------------
@@ -499,9 +520,11 @@ load_column (const char *name,
 template<typename I, typename  H>
 template<typename T1, typename T2>
 typename DataFrame<I, H>::size_type
-DataFrame<I, H>::_load_pair(std::pair<T1, T2> &col_name_data)  {
+DataFrame<I, H>::_load_pair(far_memory::FarMemManager *manager,
+                            std::pair<T1, T2> &col_name_data)  {
 
     return (load_column<typename decltype(col_name_data.second)::value_type>(
+                manager,
                 col_name_data.first, // column name
                 std::move(col_name_data.second),
                 nan_policy::pad_with_nans));

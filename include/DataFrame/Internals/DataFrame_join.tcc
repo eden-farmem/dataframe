@@ -27,6 +27,8 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "dataframe_vector.hpp"
+
 #include <DataFrame/DataFrame.h>
 
 #include <cstdio>
@@ -240,60 +242,7 @@ column_join_helper_(const LHS_T &lhs,
                     const RHS_T &rhs,
                     const char *col_name,
                     const IndexIdxVector &joined_index_idx)  {
-
-    using left_idx_t = typename std::remove_reference<LHS_T>::type::IndexType;
-    using right_idx_t = typename std::remove_reference<RHS_T>::type::IndexType;
-
-    const size_type             jii_s = joined_index_idx.size();
-    StdDataFrame<unsigned int>  result;
-
-    // Load the new result index
-    result.load_index(
-        std::move(StdDataFrame<unsigned int>::gen_sequence_index(
-               0, static_cast<unsigned int>(jii_s), 1)));
-
-    // Load the lhs and rhs indices into two columns in the result
-    // Also load the unified named column
-    std::vector<left_idx_t>     lhs_index;
-    std::vector<right_idx_t>    rhs_index;
-    std::vector<T>              named_col_vec;
-    const std::vector<T>        &lhs_named_col_vec =
-        lhs.template get_column<T>(col_name);
-    const std::vector<T>        &rhs_named_col_vec =
-        rhs.template get_column<T>(col_name);
-
-    lhs_index.reserve(jii_s);
-    rhs_index.reserve(jii_s);
-    named_col_vec.reserve(jii_s);
-    for (const auto &citer : joined_index_idx)  {
-        const size_type left_i = std::get<0>(citer);
-        const size_type right_i = std::get<1>(citer);
-
-        if (left_i != std::numeric_limits<size_type>::max())  {
-            lhs_index.push_back(lhs.indices_[left_i]);
-            named_col_vec.push_back(lhs_named_col_vec[left_i]);
-        }
-        else  {
-            named_col_vec.push_back(rhs_named_col_vec[right_i]);
-            lhs_index.push_back(DataFrame::_get_nan<left_idx_t>());
-        }
-        if (right_i != std::numeric_limits<size_type>::max())
-            rhs_index.push_back(rhs.indices_[right_i]);
-        else
-            rhs_index.push_back(DataFrame::_get_nan<right_idx_t>());
-    }
-
-    char    buffer[64];
-
-    ::sprintf(buffer, "lhs.%s", DF_INDEX_COL_NAME);
-    result.load_column(buffer, std::move(lhs_index));
-    ::sprintf(buffer, "rhs.%s", DF_INDEX_COL_NAME);
-    result.load_column(buffer, std::move(rhs_index));
-    result.load_column(col_name, std::move(named_col_vec));
-
-    join_helper_common_<LHS_T, RHS_T, unsigned int, Ts ...>
-        (lhs, rhs, joined_index_idx, result, col_name);
-    return(result);
+	BUG();
 }
 
 // ----------------------------------------------------------------------------

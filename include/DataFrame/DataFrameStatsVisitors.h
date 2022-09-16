@@ -1752,8 +1752,6 @@ private:
 
 // ----------------------------------------------------------------------------
 
-template <typename T> concept Addable = requires(T x) { x + x; };
-
 template<typename T, typename I = unsigned long>
 struct MedianVisitor  {
 
@@ -1767,16 +1765,22 @@ struct MedianVisitor  {
                 const H &values_begin,
                 const H &values_end)  {
 
-        std::vector<typename H::value_type> tmp(values_begin, values_end);
-        const size_type vec_size = tmp.size();
-        std::nth_element(tmp.begin(), tmp.begin() + vec_size / 2, tmp.end());
-        result_ = tmp[tmp.size() / 2];
-        if constexpr (Addable<T>) {
-            if (tmp.size() % 2 == 0) {
-                std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2 - 1,
-                                 tmp.end());
-                result_ = (result_ + tmp[tmp.size() / 2 - 1]) / 2;
-            }
+        const size_type                         vec_size =
+            std::distance(values_begin, values_end);
+        KthValueVisitor<value_type, index_type> kv_visitor (vec_size >> 1);
+
+
+        kv_visitor.pre();
+        kv_visitor(idx_begin, idx_end, values_begin, values_end);
+        kv_visitor.post();
+        result_ = kv_visitor.get_result();
+        if (! (vec_size & 0x0001))  { // even
+            KthValueVisitor<value_type, I>   kv_visitor2 ((vec_size >> 1) + 1);
+
+            kv_visitor2.pre();
+            kv_visitor2(idx_begin, idx_end, values_begin, values_end);
+            kv_visitor2.post();
+            result_ = (result_ + kv_visitor2.get_result()) / value_type(2);
         }
     }
     inline void pre ()  { result_ = value_type(); }

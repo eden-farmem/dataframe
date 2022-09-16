@@ -5,7 +5,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Produce cmpile_commands.json
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -Wno-subobject-linkage")
+
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+        add_definitions(-DDEBUG)
+endif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 
 # We use:
 # - InstallBasicPackageFiles
@@ -49,8 +53,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY
 # However, this could expose cross-platform bugs in user code or in the headers
 # of third-party dependencies and thus it is strongly suggested to turn
 # extensions off.
-set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_C_EXTENSIONS ON)
+set(CMAKE_CXX_EXTENSIONS ON)
 
 # Enable RPATH support for installed binaries and libraries
 include(AddInstallRPATHSupport)
@@ -81,6 +85,10 @@ set(${LIBRARY_TARGET_NAME}_SRC
   src/Utils/ThreadGranularity.cc
   src/Utils/DateTime.cc
 )
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/aifm/inc/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/bindings/cc/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/inc/)
 
 # List of header files.
 set(${LIBRARY_TARGET_NAME}_HDR
@@ -118,6 +126,30 @@ set(${LIBRARY_TARGET_NAME}_HDR
   include/DataFrame/Utils/FixedSizeString.h
 )
 
+# Link Shenango.
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/bindings/cc/)
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/)
+link_libraries(rt++ runtime net base)
+
+# Linker script.
+set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -T${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/base/base.ld")
+
+# Link AIFM.
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/aifm)
+link_libraries(aifm)
+
+# Link Pthread.
+link_libraries(pthread)
+
+# Link RDMA.
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/rdma-core/build/lib/statics)
+link_libraries(mlx5 ibverbs)
+
+# Link netlink.
+link_libraries(nl-3 nl-route-3)
+
+# Link libnuma.
+link_libraries(numa)
 
 # Build the library
 if (UNIX)
@@ -221,134 +253,134 @@ endif(MSVC)
 include(AddUninstallTarget)
 
 # Build the app binary
-add_executable(main  app/main.cc)
+add_executable(main_tcp app/main_tcp.cc)
+add_executable(main_fake app/main_fake.cc)
 
 # Link the DataFrame library to the app binary
-target_link_libraries(main DataFrame)
+target_link_libraries(main_tcp DataFrame)
+target_link_libraries(main_fake DataFrame)
 
 # Build the test binary
-add_executable(dataframe_tester  test/dataframe_tester.cc)
-add_executable(dataframe_tester_2  test/dataframe_tester_2.cc)
-add_executable(dataframe_performance  test/dataframe_performance.cc)
-add_executable(vectors_tester    test/vectors_tester.cc)
-add_executable(vector_ptr_view_tester test/vector_ptr_view_tester.cc)
-add_executable(date_time_tester  test/date_time_tester.cc)
-add_executable(gen_rand_tester  test/gen_rand_tester.cc)
+#add_executable(dataframe_tester  test/dataframe_tester.cc)
+#add_executable(dataframe_tester_2  test/dataframe_tester_2.cc)
+#add_executable(dataframe_performance  test/dataframe_performance.cc)
+#add_executable(vectors_tester    test/vectors_tester.cc)
+#add_executable(vector_ptr_view_tester test/vector_ptr_view_tester.cc)
+#add_executable(date_time_tester  test/date_time_tester.cc)
+#add_executable(gen_rand_tester  test/gen_rand_tester.cc)
 
-# Link the DataFrame library to the test binary
-target_link_libraries(dataframe_tester DataFrame)
+# # Link the DataFrame library to the test binary
+# target_link_libraries(dataframe_tester DataFrame)
 
-# Link the DataFrame library to the test binary
-target_link_libraries(dataframe_tester_2 DataFrame)
+# # Link the DataFrame library to the test binary
+# target_link_libraries(dataframe_tester_2 DataFrame)
 
-# Link the DataFrame library to the test binary
-target_link_libraries(dataframe_performance DataFrame)
+# # Link the DataFrame library to the test binary
+# target_link_libraries(dataframe_performance DataFrame)
 
-# Link the DataFrame library to the test binary
-target_link_libraries(vectors_tester DataFrame)
+# # Link the DataFrame library to the test binary
+# target_link_libraries(vectors_tester DataFrame)
 
-# Link the DataFrame library to the test binary
-target_link_libraries(vector_ptr_view_tester DataFrame)
+# # Link the DataFrame library to the test binary
+# target_link_libraries(vector_ptr_view_tester DataFrame)
 
-# Link the DataFrame library to the test binary
-target_link_libraries(date_time_tester DataFrame)
+# # Link the DataFrame library to the test binary
+# target_link_libraries(date_time_tester DataFrame)
 
-# Link the DataFrame library to the test binary
-target_link_libraries(gen_rand_tester DataFrame)
+# # Link the DataFrame library to the test binary
+# target_link_libraries(gen_rand_tester DataFrame)
 
-if (UNIX)
-  # Find pthreads library
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads REQUIRED)
-  target_link_libraries(main Threads::Threads)
-  target_link_libraries(dataframe_tester Threads::Threads)
-  target_link_libraries(dataframe_tester_2 Threads::Threads)
-  target_link_libraries(dataframe_performance Threads::Threads)
-  target_link_libraries(vectors_tester Threads::Threads)
-  target_link_libraries(vector_ptr_view_tester Threads::Threads)
-  target_link_libraries(date_time_tester Threads::Threads)
-  target_link_libraries(gen_rand_tester Threads::Threads)
-endif (UNIX)
+# if (UNIX)
+#   find_package(Threads REQUIRED)
+#   target_link_libraries(main Threads::Threads)
+#   target_link_libraries(dataframe_tester Threads::Threads)
+#   target_link_libraries(dataframe_tester_2 Threads::Threads)
+#   target_link_libraries(dataframe_performance Threads::Threads)
+#   target_link_libraries(vectors_tester Threads::Threads)
+#   target_link_libraries(vector_ptr_view_tester Threads::Threads)
+#   target_link_libraries(date_time_tester Threads::Threads)
+#   target_link_libraries(gen_rand_tester Threads::Threads)
+# endif (UNIX)
 
-if (UNIX AND NOT APPLE)
-  target_link_libraries(main rt)
-  target_link_libraries(dataframe_tester rt)
-  target_link_libraries(dataframe_tester_2 rt)
-  target_link_libraries(dataframe_performance rt)
-  target_link_libraries(vectors_tester rt)
-  target_link_libraries(vector_ptr_view_tester rt)
-  target_link_libraries(date_time_tester rt)
-  target_link_libraries(gen_rand_tester rt)
-endif()
+# if (UNIX AND NOT APPLE)
+#   target_link_libraries(main rt)
+#   target_link_libraries(dataframe_tester rt)
+#   target_link_libraries(dataframe_tester_2 rt)
+#   target_link_libraries(dataframe_performance rt)
+#   target_link_libraries(vectors_tester rt)
+#   target_link_libraries(vector_ptr_view_tester rt)
+#   target_link_libraries(date_time_tester rt)
+#   target_link_libraries(gen_rand_tester rt)
+# endif()
 
-# Enable ctest, testing so we can see if unit tests pass or fail in CI
-enable_testing()
-add_test(NAME dataframe_tester
-         COMMAND dataframe_tester
-         WORKING_DIRECTORY $<TARGET_FILE_DIR:dataframe_tester>)
+# # Enable ctest, testing so we can see if unit tests pass or fail in CI
+# enable_testing()
+# add_test(NAME dataframe_tester
+#          COMMAND dataframe_tester
+#          WORKING_DIRECTORY $<TARGET_FILE_DIR:dataframe_tester>)
 
-# For some unknown reason to me, these tests sigfaults in AppVeyor
-#
-if (NOT MSVC)
-  add_test(NAME dataframe_tester_2
-           COMMAND dataframe_tester_2
-           WORKING_DIRECTORY $<TARGET_FILE_DIR:dataframe_tester_2>)
+# # For some unknown reason to me, these tests sigfaults in AppVeyor
+# #
+# if (NOT MSVC)
+#   add_test(NAME dataframe_tester_2
+#            COMMAND dataframe_tester_2
+#            WORKING_DIRECTORY $<TARGET_FILE_DIR:dataframe_tester_2>)
 
-  add_test(NAME vectors_tester
-           COMMAND vectors_tester
-           WORKING_DIRECTORY $<TARGET_FILE_DIR:vectors_tester>)
-endif(NOT MSVC)
+#   add_test(NAME vectors_tester
+#            COMMAND vectors_tester
+#            WORKING_DIRECTORY $<TARGET_FILE_DIR:vectors_tester>)
+# endif(NOT MSVC)
 
-add_test(NAME vector_ptr_view_tester
-         COMMAND vector_ptr_view_tester
-         WORKING_DIRECTORY $<TARGET_FILE_DIR:vector_ptr_view_tester>)
-add_test(NAME date_time_tester
-         COMMAND date_time_tester
-         WORKING_DIRECTORY $<TARGET_FILE_DIR:date_time_tester>)
+# add_test(NAME vector_ptr_view_tester
+#          COMMAND vector_ptr_view_tester
+#          WORKING_DIRECTORY $<TARGET_FILE_DIR:vector_ptr_view_tester>)
+# add_test(NAME date_time_tester
+#          COMMAND date_time_tester
+#          WORKING_DIRECTORY $<TARGET_FILE_DIR:date_time_tester>)
 
-add_test(NAME gen_rand_tester
-         COMMAND gen_rand_tester
-         WORKING_DIRECTORY $<TARGET_FILE_DIR:gen_rand_tester>)
+# add_test(NAME gen_rand_tester
+#          COMMAND gen_rand_tester
+#          WORKING_DIRECTORY $<TARGET_FILE_DIR:gen_rand_tester>)
 
-message("-- Copying files for testing")
-# Ctest require this files in the build dir, on all platforms
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test/standard.csv
-                   ${CMAKE_CURRENT_BINARY_DIR}/standard.csv)
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.csv
-                   ${CMAKE_CURRENT_BINARY_DIR}/sample_data.csv)
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                   ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.json
-                   ${CMAKE_CURRENT_BINARY_DIR}/sample_data.json)
-add_custom_command(
-    TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-    ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_dt_index.csv
-    ${CMAKE_CURRENT_BINARY_DIR}/sample_data_dt_index.csv)
-add_custom_command(
-    TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-    ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_string_index.csv
-    ${CMAKE_CURRENT_BINARY_DIR}/sample_data_string_index.csv)
+# message("-- Copying files for testing")
+# # Ctest require this files in the build dir, on all platforms
+# add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#                    COMMAND ${CMAKE_COMMAND} -E copy
+#                    ${CMAKE_CURRENT_SOURCE_DIR}/test/standard.csv
+#                    ${CMAKE_CURRENT_BINARY_DIR}/standard.csv)
+# add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#                    COMMAND ${CMAKE_COMMAND} -E copy
+#                    ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.csv
+#                    ${CMAKE_CURRENT_BINARY_DIR}/sample_data.csv)
+# add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#                    COMMAND ${CMAKE_COMMAND} -E copy
+#                    ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.json
+#                    ${CMAKE_CURRENT_BINARY_DIR}/sample_data.json)
+# add_custom_command(
+#     TARGET ${PROJECT_NAME} POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy
+#     ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_dt_index.csv
+#     ${CMAKE_CURRENT_BINARY_DIR}/sample_data_dt_index.csv)
+# add_custom_command(
+#     TARGET ${PROJECT_NAME} POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy
+#     ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_string_index.csv
+#     ${CMAKE_CURRENT_BINARY_DIR}/sample_data_string_index.csv)
 
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.csv
-          DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Debug)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.csv
-          DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Release)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.json
-          DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Debug)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.json
-          DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Release)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_dt_index.csv
-          DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Debug)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_dt_index.csv
-          DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Release)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_string_index.csv
-          DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Debug)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_string_index.csv
-          DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Release)
-message("-- Copying files for testing - done")
+# file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.csv
+#           DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Debug)
+# file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.csv
+#           DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Release)
+# file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.json
+#           DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Debug)
+# file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data.json
+#           DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Release)
+# file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_dt_index.csv
+#           DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Debug)
+# file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_dt_index.csv
+#           DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Release)
+# file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_string_index.csv
+#           DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Debug)
+# file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test/sample_data_string_index.csv
+#           DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/Release)
+# message("-- Copying files for testing - done")

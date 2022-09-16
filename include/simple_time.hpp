@@ -78,4 +78,20 @@ struct SimpleTime {
         return __builtin_strncmp(reinterpret_cast<const char*>(this),
                                  reinterpret_cast<const char*>(&o), sizeof(o)) == 0;
     }
+
+    bool operator!=(const SimpleTime& o) const
+    {
+        return !operator==(o);
+    }
 };
+
+template <> struct std::hash<SimpleTime> {
+    size_t operator()(const SimpleTime& simple_time) const
+    {
+        uint64_t hash = 0;
+        static_assert(sizeof(simple_time) <= sizeof(hash));
+        __builtin_memcpy(&hash, &simple_time, sizeof(simple_time));
+        return hash;
+    }
+};
+

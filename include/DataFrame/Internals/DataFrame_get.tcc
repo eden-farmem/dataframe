@@ -27,11 +27,15 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "dataframe_vector.hpp"
+
 #include <DataFrame/DataFrame.h>
 #include <DataFrame/DataFrameStatsVisitors.h>
 
 #include <cmath>
+#include <cstdint>
 #include <functional>
+#include <memory>
 #include <random>
 #include <unordered_set>
 
@@ -86,7 +90,7 @@ DataFrame<I, H>::get_column (const char *name)  {
     DataVec         &hv = data_[iter->second];
     const SpinGuard guars(lock_);
 
-    return (hv.template get_vector<T>());
+    return (hv.template get_existed_vector<T>());
 }
 
 // ----------------------------------------------------------------------------
@@ -156,44 +160,12 @@ get_row(size_type row_num, const std::array<const char *, N> col_names) const {
 
 // ----------------------------------------------------------------------------
 
-template<typename I, typename  H>
-template<typename T>
-std::vector<T> DataFrame<I, H>::
-get_col_unique_values(const char *name) const  {
-
-    const std::vector<T>    &vec = get_column<T>(name);
-    auto                    hash_func =
-        [](std::reference_wrapper<const T> v) -> std::size_t  {
-            return(std::hash<T>{}(v.get()));
-    };
-    auto                    equal_func =
-        [](std::reference_wrapper<const T> lhs,
-           std::reference_wrapper<const T> rhs) -> bool  {
-            return(lhs.get() == rhs.get());
-    };
-
-    std::unordered_set<
-        typename std::reference_wrapper<T>::type,
-        decltype(hash_func),
-        decltype(equal_func)>   table(vec.size(), hash_func, equal_func);
-    bool                        counted_nan = false;
-    std::vector<T>              result;
-
-    result.reserve(vec.size());
-    for (auto citer : vec)  {
-        if (_is_nan<T>(citer) && ! counted_nan)  {
-            counted_nan = true;
-            result.push_back(_get_nan<T>());
-            continue;
-        }
-
-        const auto  insert_ret = table.emplace(std::ref(citer));
-
-        if (insert_ret.second)
-            result.push_back(citer);
-    }
-
-    return(result);
+template <typename I, typename H>
+template <typename T>
+far_memory::DataFrameVector<T> DataFrame<I, H>::get_col_unique_values(
+    far_memory::FarMemManager* manager, const char* name) const
+{
+    return const_cast<DataFrame<I, H>*>(this)->get_column<T>(name).get_col_unique_values(manager);
 }
 
 // ----------------------------------------------------------------------------
@@ -224,19 +196,34 @@ void DataFrame<I, H>::multi_visit (Ts ... args)  {
 template<typename I, typename  H>
 template<typename T, typename V>
 V &DataFrame<I, H>::visit (const char *name, V &visitor)  {
+    auto& vec                               = get_column<T>(name);
+    const size_type idx_s                   = indices_.size();
+    const size_type min_s                   = std::min<size_type>(vec.size(), idx_s);
+    size_type i                             = 0;
+    far_memory::DerefScope scope;
+    constexpr uint64_t kNumElementsPerScope = 1024;
 
-    auto            &vec = get_column<T>(name);
-    const size_type idx_s = indices_.size();
-    const size_type min_s = std::min<size_type>(vec.size(), idx_s);
-    size_type       i = 0;
+    auto idx_it = indices_.cfbegin(scope);
+    auto vec_it = vec.cfbegin(scope);
 
     visitor.pre();
-    for (; i < min_s; ++i)
-        visitor (indices_[i], vec[i]);
+    for (; i < min_s; ++i) {
+        if (unlikely(i % kNumElementsPerScope == 0)) {
+            scope.renew();
+            idx_it.renew(scope);
+            vec_it.renew(scope);
+        }
+        visitor (*idx_it, *vec_it);
+        ++idx_it;
+        ++vec_it;
+	}
     for (; i < idx_s; ++i)  {
+        if (unlikely(i % kNumElementsPerScope == 0)) {
+            scope.renew();
+            idx_it.renew(scope);
+        }
         T   nan_val = _get_nan<T>();
-
-        visitor (indices_[i], nan_val);
+        visitor (*idx_it, nan_val);
     }
     visitor.post();
 
@@ -739,28 +726,30 @@ single_act_visit_async(const char *name1,
 
 // ----------------------------------------------------------------------------
 
-template<typename I, typename  H>
-template<typename ... Ts>
-DataFrame<I, H>
-DataFrame<I, H>::get_data_by_idx (Index2D<IndexType> range) const  {
-
+template <typename I, typename H>
+template <typename... Ts>
+DataFrame<I, H> DataFrame<I, H>::get_data_by_idx(far_memory::FarMemManager* manager,
+                                                 Index2D<IndexType> range) const
+{
+    assert(!far_memory::DerefScope::is_in_deref_scope());
     const auto  &lower =
-        std::lower_bound (indices_.begin(), indices_.end(), range.begin);
+        std::lower_bound (indices_.cbegin(), indices_.cend(), range.begin);
     const auto  &upper =
-        std::upper_bound (indices_.begin(), indices_.end(), range.end);
-    DataFrame   df;
+        std::upper_bound (indices_.cbegin(), indices_.cend(), range.end);
+    DataFrame df(manager);
 
-    if (lower != indices_.end())  {
+    if (lower != indices_.cend()) {
         df.load_index(lower, upper);
 
-        const size_type b_dist = std::distance(indices_.begin(), lower);
-        const size_type e_dist = std::distance(indices_.begin(),
-                                               upper < indices_.end()
+        const size_type b_dist = std::distance(indices_.cbegin(), lower);
+        const size_type e_dist = std::distance(indices_.cbegin(),
+                                               upper < indices_.cend()
                                                    ? upper
-                                                   : indices_.end());
+                                                   : indices_.cend());
 
         for (auto &iter : column_tb_)  {
-            load_functor_<DataFrame, Ts ...>    functor (iter.first.c_str(),
+            load_functor_<DataFrame, Ts ...>    functor (manager,
+                                                         iter.first.c_str(),
                                                          b_dist,
                                                          e_dist,
                                                          df);
@@ -1068,31 +1057,37 @@ DataFrame<I, H>::get_view_by_loc (const std::vector<long> &locations) const  {
 
 // ----------------------------------------------------------------------------
 
-template<typename I, typename  H>
-template<typename T, typename F, typename ... Ts>
-DataFrame<I, H> DataFrame<I, H>::
-get_data_by_sel (const char *name, F &sel_functor) const  {
+template <typename I, typename H>
+template <typename T, typename F, typename... Ts>
+DataFrame<I, H> DataFrame<I, H>::get_data_by_sel(far_memory::FarMemManager* manager,
+                                                 const char* name, F& sel_functor) const
+{
+    constexpr uint64_t kNumElementsPerScope = 1024;
+    auto& column_dataframe_vec              = get_column<T>(name);
+    auto col_indices = manager->allocate_dataframe_vector<unsigned long long>();
+    {
+        far_memory::DerefScope scope;
+        auto column_it = column_dataframe_vec.cfbegin(scope);
+        for (unsigned long long i = 0; i < indices_.size(); ++i, ++column_it) {
+            if (unlikely(i % kNumElementsPerScope == 0)) {
+                scope.renew();
+                column_it.renew(scope);
+            }
+            if (sel_functor(i, *column_it)) {
+                col_indices.push_back(scope, i);
+            }
+        }
+    }
 
-    const std::vector<T>    &vec = get_column<T>(name);
-    const size_type         idx_s = indices_.size();
-    const size_type         col_s = vec.size();
-    std::vector<size_type>  col_indices;
-
-    col_indices.reserve(idx_s / 2);
-    for (size_type i = 0; i < col_s; ++i)
-        if (sel_functor (indices_[i], vec[i]))
-            col_indices.push_back(i);
-
-    DataFrame       df;
-    IndexVecType    new_index;
-
-    new_index.reserve(col_indices.size());
-    for (const auto citer: col_indices)
-        new_index.push_back(indices_[citer]);
+    DataFrame df(manager);
+    auto new_index = const_cast<IndexVecType*>(&indices_)->
+        copy_data_by_idx(manager, col_indices);
     df.load_index(std::move(new_index));
 
+    const size_type idx_s = indices_.size();
     for (auto col_citer : column_tb_)  {
-        sel_load_functor_<size_type, Ts ...>    functor (
+        sel_load_functor_<unsigned long long, Ts ...>    functor (
+            manager,
             col_citer.first.c_str(),
             col_indices,
             idx_s,
@@ -1101,7 +1096,7 @@ get_data_by_sel (const char *name, F &sel_functor) const  {
         data_[col_citer.second].change(functor);
     }
 
-    return (df);
+    return df;
 }
 
 // ----------------------------------------------------------------------------

@@ -29,6 +29,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#include "dataframe_vector.hpp"
+
 // ----------------------------------------------------------------------------
 
 // This file was factored out so DataFrame.h doesn't become a huge file.
@@ -63,12 +65,14 @@ struct shrink_to_fit_functor_ : DataVec::template visitor_base<Ts ...>  {
 template<typename ... Ts>
 struct sort_functor_ : DataVec::template visitor_base<Ts ...>  {
 
-    inline sort_functor_ (const std::vector<size_t> &si, size_t is)
-        : sorted_idxs(si), idx_s(is)  {   }
+    inline sort_functor_ (far_memory::FarMemManager *m,
+                          far_memory::DataFrameVector<unsigned long long> &si,
+                          size_t is)
+        : manager(m), sorted_idxs(si), idx_s(is)  {   }
 
-    const std::vector<size_t>   &sorted_idxs;
-    std::vector<size_t>         sorted_idxs_copy;
-    const size_t                idx_s;
+    far_memory::FarMemManager                              *manager;
+    far_memory::DataFrameVector<unsigned long long>&       sorted_idxs;
+    const size_t                                           idx_s;
 
     template<typename T2>
     void operator() (T2 &vec);
@@ -79,18 +83,20 @@ struct sort_functor_ : DataVec::template visitor_base<Ts ...>  {
 template<typename LHS, typename ... Ts>
 struct load_functor_ : DataVec::template visitor_base<Ts ...>  {
 
-    inline load_functor_ (const char *n,
+    inline load_functor_ (far_memory::FarMemManager *m,
+                          const char *n,
                           std::size_t b,
                           std::size_t e,
                           LHS &d,
                           nan_policy np = nan_policy::pad_with_nans)
-    : name (n), begin (b), end (e), df(d), nan_p(np)  {   }
+    : manager(m), name (n), begin (b), end (e), df(d), nan_p(np)  {   }
 
-    const char          *name;
-    const std::size_t   begin;
-    const std::size_t   end;
-    LHS                 &df;
-    const nan_policy    nan_p;
+    far_memory::FarMemManager *manager;
+    const char                *name;
+    const std::size_t         begin;
+    const std::size_t         end;
+    LHS                       &df;
+    const nan_policy          nan_p;
 
     template<typename T>
     void operator() (const T &vec);
@@ -153,9 +159,11 @@ friend struct view_setup_functor_;
 template<typename ... Ts>
 struct add_col_functor_ : DataVec::template visitor_base<Ts ...>  {
 
-    inline add_col_functor_ (const char *n, DataFrame &d)
-        : name (n), df(d)  {   }
+    inline add_col_functor_ (far_memory::FarMemManager *m, const char *n,
+                             DataFrame &d)
+        : manager(m), name (n), df(d)  {   }
 
+    far_memory::FarMemManager *manager;
     const char  *name;
     DataFrame   &df;
 
@@ -165,26 +173,24 @@ struct add_col_functor_ : DataVec::template visitor_base<Ts ...>  {
 
 // ----------------------------------------------------------------------------
 
-template<typename F, typename ... Ts>
+template<typename T, typename F, typename ... Ts>
 struct groupby_functor_ : DataVec::template visitor_base<Ts ...>  {
 
-    inline groupby_functor_ (const char *n,
-                             std::size_t b,
-                             std::size_t e,
-                             const IndexVecType &iv,
+    inline groupby_functor_ (far_memory::FarMemManager *m,
+                             const char *n,
+                             const far_memory::DataFrameVector<T> &k,
                              F &f,
                              DataFrame &d)
-        : name(n), begin(b), end(e), index_vec(iv), functor(f), df(d) {  }
+        : manager(m), name(n), key_vec(k), functor(f), df(d) {  }
 
-    const char          *name;
-    const std::size_t   begin;
-    const std::size_t   end;
-    const IndexVecType  &index_vec;
-    F                   &functor;
-    DataFrame           &df;
+    far_memory::FarMemManager             *manager;
+    const char                            *name;
+    const far_memory::DataFrameVector<T>  &key_vec;
+    F                                     &functor;
+    DataFrame                             &df;
 
-    template<typename T>
-    void operator() (const T &vec);
+    template<typename U>
+    void operator() (const U &vec);
 };
 
 // ----------------------------------------------------------------------------
@@ -466,19 +472,21 @@ struct get_row_functor_ : DataVec::template visitor_base<Ts ...>  {
 template<typename IT, typename ... Ts>
 struct sel_load_functor_ : DataVec::template visitor_base<Ts ...>  {
 
-    inline sel_load_functor_ (const char *n,
-                              const std::vector<IT> &si,
+    inline sel_load_functor_ (far_memory::FarMemManager *m,
+                              const char *n,
+                              far_memory::DataFrameVector<IT> &si,
                               size_type is,
                               DataFrame &d)
-        : name (n), sel_indices (si), indices_size(is), df(d)  {   }
+        : manager(m), name (n), sel_indices (si), indices_size(is), df(d)  {   }
 
-    const char              *name;
-    const std::vector<IT>   &sel_indices;
-    const size_type         indices_size;
-    DataFrame               &df;
+    far_memory::FarMemManager *manager;
+    const char* name;
+    far_memory::DataFrameVector<IT>& sel_indices;
+    const size_type indices_size;
+    DataFrame& df;
 
     template<typename T>
-    void operator() (const std::vector<T> &vec);
+    void operator() (const far_memory::DataFrameVector<T> &vec);
 };
 
 // ----------------------------------------------------------------------------

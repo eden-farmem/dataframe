@@ -29,6 +29,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#include "manager.hpp"
+
 #include <DataFrame/DataFrameTypes.h>
 #include <DataFrame/Utils/DateTime.h>
 #include <DataFrame/Utils/FixedSizeString.h>
@@ -80,7 +82,7 @@ public:
     using IndexVecType = typename type_declare<DataVec, IndexType>::type;
     using ColNameType = String64;
 
-    DataFrame() = default;
+    DataFrame(far_memory::FarMemManager *manager);
     DataFrame(const DataFrame &) = default;
     DataFrame(DataFrame &&) = default;
     DataFrame &operator= (const DataFrame &) = default;
@@ -96,7 +98,7 @@ private:
     // Data fields
     //
     DataVecVec      data_ { };       // Vector of Heterogeneous vectors
-    IndexVecType    indices_ { };    // Vector
+    IndexVecType    indices_;        // Vector
     ColumnTable     column_tb_ { };  // Hash table of name -> vector index
 
     inline static SpinLock *lock_ { nullptr };    // It is null by default
@@ -117,8 +119,8 @@ public:  // Load/append/remove interfaces
     //   Type of column being added
     //
     template<typename T>
-    std::vector<T> &
-    create_column(const char *name);
+	far_memory::DataFrameVector<T> &
+	create_column(far_memory::FarMemManager *manager, const char *name);
 
     // It removes a column named name.
     // The actual data vector is not deleted, but the column is dropped from
@@ -170,7 +172,8 @@ public:  // Load/append/remove interfaces
     //
     template<typename ... Ts>
     size_type
-    load_data(IndexVecType &&indices, Ts&& ... args);
+    load_data(far_memory::FarMemManager *manager, IndexVecType &&indices,
+              Ts&& ... args);
 
     // It copies the data from iterators begin to end into the index column
     //
@@ -204,8 +207,9 @@ public:  // Load/append/remove interfaces
     //
     template<typename T, typename ITR>
     size_type
-    load_column(const char *name,
-                Index2D<const ITR &> range,
+    load_column(far_memory::FarMemManager *manager,
+                const char *name,
+                Index2D<const ITR> range,
                 nan_policy padding = nan_policy::pad_with_nans);
 
     // It moves the data to the named column in DataFrame.
@@ -224,14 +228,14 @@ public:  // Load/append/remove interfaces
     //
     template<typename T>
     size_type
-    load_column(const char *name,
-                std::vector<T> &&data,
+	load_column(far_memory::FarMemManager *manager, const char *name,
+                far_memory::DataFrameVector<T> &&data,
                 nan_policy padding = nan_policy::pad_with_nans);
 
     template<typename T>
     size_type
-    load_column(const char *name,
-                const std::vector<T> &data,
+	load_column(far_memory::FarMemManager *manager, const char *name,
+                const far_memory::DataFrameVector<T> &data,
                 nan_policy padding = nan_policy::pad_with_nans);
 
     // This method creates a column similar to above, but assumes data is
@@ -622,7 +626,7 @@ public:  // Data manipulation
     //
     template<typename T, typename ... Ts>
     void
-    sort(const char *name, sort_spec dir);
+    sort(far_memory::FarMemManager *manager, const char *name, sort_spec dir);
 
     // This sort function sorts DataFrame based on two columns, also
     // specified by the two directions.
@@ -743,7 +747,8 @@ public:  // Data manipulation
     //
     template<typename F, typename T, typename ... Ts>
     [[nodiscard]] DataFrame
-    groupby(F &&func,
+    groupby(far_memory::FarMemManager *manager,
+            F &&func,
             const char *gb_col_name,
             sort_state already_sorted = sort_state::not_sorted) const;
 
@@ -751,7 +756,8 @@ public:  // Data manipulation
     //
     template<typename F, typename T, typename ... Ts>
     [[nodiscard]] std::future<DataFrame>
-    groupby_async(F &&func,
+    groupby_async(far_memory::FarMemManager *manager,
+                  F &&func,
                   const char *gb_col_name,
                   sort_state already_sorted = sort_state::not_sorted) const;
 
@@ -1091,9 +1097,9 @@ public: // Read/access and slicing interfaces
     // T:
     //   Data type of the named column
     //
-    template<typename T>
-    [[nodiscard]] std::vector<T>
-    get_col_unique_values(const char *name) const;
+    template <typename T>
+    [[nodiscard]] far_memory::DataFrameVector<T> get_col_unique_values(
+        far_memory::FarMemManager* manager, const char* name) const;
 
     // It returns a DataFrame (including the index and data columns)
     // containing the data from index begin to index end.
@@ -1107,7 +1113,8 @@ public: // Read/access and slicing interfaces
     //
     template<typename ... Ts>
     [[nodiscard]] DataFrame
-    get_data_by_idx(Index2D<IndexType> range) const;
+    get_data_by_idx(far_memory::FarMemManager *manager,
+                    Index2D<IndexType> range) const;
 
     // It returns a DataFrame (including the index and data columns)
     // containing the data corresponding to the indices specified in "values"
@@ -1268,9 +1275,10 @@ public: // Read/access and slicing interfaces
     // sel_functor:
     //   A reference to the selecting functor
     //
-    template<typename T, typename F, typename ... Ts>
-    [[nodiscard]] DataFrame
-    get_data_by_sel(const char *name, F &sel_functor) const;
+    template <typename T, typename F, typename... Ts>
+    [[nodiscard]] DataFrame get_data_by_sel(far_memory::FarMemManager* manager,
+                                            const char* name,
+                                            F& sel_functor) const;
 
     // This is identical with above get_data_by_sel(), but:
     //   1) The result is a view
@@ -2306,7 +2314,8 @@ protected:
 
     template<typename T1, typename T2>
     size_type
-    _load_pair(std::pair<T1, T2> &col_name_data);
+    _load_pair(far_memory::FarMemManager *manager,
+               std::pair<T1, T2> &col_name_data);
 
     template<typename T>
     static inline constexpr
@@ -2320,9 +2329,10 @@ private:  // Static helper functions
 
     void read_json_(std::ifstream &file);
 
-    template<typename CF, typename ... Ts>
+    template<bool Ascending, typename T, typename ... Ts>
     static void
-    sort_common_(DataFrame<I, H> &df, CF &&comp_func);
+    sort_common_(far_memory::FarMemManager *manager, DataFrame<I, H> &df,
+                 const T &vec);
 
     template<typename T>
     static void

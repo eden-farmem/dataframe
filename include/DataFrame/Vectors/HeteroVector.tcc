@@ -27,6 +27,8 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "manager.hpp"
+
 #include <DataFrame/Vectors/HeteroVector.h>
 
 #include <algorithm>
@@ -37,7 +39,18 @@ namespace hmdf
 {
 
 template<typename T>
-std::vector<T> &HeteroVector::get_vector()  {
+far_memory::DataFrameVector<T> &
+HeteroVector::get_existed_vector()  {
+
+    auto    iter = vectors_<T>.find (this);
+	BUG_ON(iter == vectors_<T>.end());
+
+    return (iter->second);
+}
+	
+template<typename T>
+far_memory::DataFrameVector<T> &
+HeteroVector::get_vector(far_memory::FarMemManager *manager)  {
 
     auto    iter = vectors_<T>.find (this);
 
@@ -50,16 +63,21 @@ std::vector<T> &HeteroVector::get_vector()  {
         // copy_function and pass themself
         copy_functions_.emplace_back (
             [](const HeteroVector &from, HeteroVector &to)  {
-                vectors_<T>[&to] = vectors_<T>[&from];
+				auto from_iter = vectors_<T>.find(&from);
+				BUG_ON(from_iter == vectors_<T>.end());
+				vectors_<T>.insert_or_assign(&to, from_iter->second);
             });
 
         move_functions_.emplace_back (
             [](HeteroVector &from, HeteroVector &to)  {
-                vectors_<T>[&to] = std::move(vectors_<T>[&from]);
-                vectors_<T>.erase(vectors_<T>.find(&from));
+				auto from_iter = vectors_<T>.find(&from);
+				BUG_ON(from_iter == vectors_<T>.end());
+				vectors_<T>.insert_or_assign(&to, std::move(from_iter->second));
+				vectors_<T>.erase(from_iter);
             });
 
-        iter = vectors_<T>.emplace (this, std::vector<T>()).first;
+        iter = vectors_<T>.emplace (this,
+									manager->allocate_dataframe_vector<T>()).first;
     }
 
     return (iter->second);
@@ -69,31 +87,29 @@ std::vector<T> &HeteroVector::get_vector()  {
 
 template<typename T>
 HeteroView HeteroVector::get_view(size_type begin, size_type end)  {
-
-    std::vector<T>  &vec = get_vector<T>();
-
-    return (HeteroView(
-        &(vec[begin]), end == size_t(-1) ? &(vec.back()) : &(vec[end])));
+	BUG();
 }
 
 // ----------------------------------------------------------------------------
 
 template<typename T>
 HeteroPtrView HeteroVector::get_ptr_view(size_type begin, size_type end)  {
-
-    std::vector<T>  &vec = get_vector<T>();
-
-    return (HeteroPtrView(
-        &(*(vec.begin() + begin)),
-        end == size_type(-1) ? &(*(vec.end())) : &(*(vec.begin() + end))));
+	BUG();
 }
 
 // ----------------------------------------------------------------------------
 
 template<typename T>
-const std::vector<T> &HeteroVector::get_vector() const  {
+const far_memory::DataFrameVector<T> &
+HeteroVector::get_vector(far_memory::FarMemManager *manager) const  {
 
-    return (const_cast<HeteroVector *>(this)->get_vector<T>());
+    return (const_cast<HeteroVector *>(this)->get_vector<T>(manager));
+}
+
+template <typename T>
+const far_memory::DataFrameVector<T>& HeteroVector::get_existed_vector() const
+{
+    return (const_cast<HeteroVector*>(this)->get_existed_vector<T>());
 }
 
 // ----------------------------------------------------------------------------
@@ -121,35 +137,21 @@ void HeteroVector::emplace (ITR pos, Args &&... args)  {
 
 template<typename T, typename U>
 void HeteroVector::visit_impl_help_ (T &visitor)  {
-
-    auto    iter = vectors_<U>.find (this);
-
-    if (iter != vectors_<U>.end())
-        for (auto &&element : iter->second)
-            visitor(element);
+	BUG();
 }
 
 // ----------------------------------------------------------------------------
 
 template<typename T, typename U>
 void HeteroVector::visit_impl_help_ (T &visitor) const  {
-
-    const auto  citer = vectors_<U>.find (this);
-
-    if (citer != vectors_<U>.end())
-        for (auto &&element : citer->second)
-            visitor(element);
+	BUG();
 }
 
 // ----------------------------------------------------------------------------
 
 template<typename T, typename U>
 void HeteroVector::sort_impl_help_ (T &functor)  {
-
-    auto    iter = vectors_<U>.find (this);
-
-    if (iter != vectors_<U>.end())
-        std::sort (iter->second.begin(), iter->second.end(), functor);
+	BUG();
 }
 
 // ----------------------------------------------------------------------------

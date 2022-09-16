@@ -29,6 +29,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#include "dataframe_vector.hpp"
+#include "manager.hpp"
+
 #include <DataFrame/Vectors/HeteroPtrView.h>
 #include <DataFrame/Vectors/HeteroView.h>
 
@@ -58,10 +61,18 @@ public:
     HeteroVector &operator= (const HeteroVector &rhs);
     HeteroVector &operator= (HeteroVector &&rhs) noexcept;
 
-    template<typename T>
-    std::vector<T> &get_vector();
-    template<typename T>
-    const std::vector<T> &get_vector() const;
+    template <typename T>
+    far_memory::DataFrameVector<T>& get_existed_vector();
+    template <typename T>
+    const far_memory::DataFrameVector<T>&
+	get_existed_vector() const;
+	
+    template <typename T>
+    far_memory::DataFrameVector<T>&
+	get_vector(far_memory::FarMemManager *manager);
+    template <typename T>
+    const far_memory::DataFrameVector<T>&
+	get_vector(far_memory::FarMemManager *manager) const;
 
     // It returns a view of the underlying vector.
     // NOTE: One can modify the vector through the view. But the vector
@@ -82,12 +93,12 @@ public:
     void emplace (ITR pos, Args &&... args);
 
     template<typename T>
-    void reserve (size_type r)  { get_vector<T>().reserve (r); }
+    void reserve (size_type r)  { get_existed_vector<T>().reserve (r); }
     template<typename T>
-    void shrink_to_fit () { get_vector<T>().shrink_to_fit (); }
+    void shrink_to_fit () { get_existed_vector<T>().shrink_to_fit (); }
 
     template<typename T>
-    size_type size () const { return (get_vector<T>().size()); }
+    size_type size () const { return (get_existed_vector<T>().size()); }
 
     void clear();
 
@@ -120,52 +131,70 @@ public:
     template<typename T>
     const T &front() const;
 
+	template <typename T>
+	class NotImplemented {};
     template<typename T>
-    using iterator = typename std::vector<T>::iterator;
+    using iterator = NotImplemented<T>;
     template<typename T>
-    using const_iterator = typename std::vector<T>::const_iterator;
+    using const_iterator = NotImplemented<T>;
     template<typename T>
-    using reverse_iterator = typename std::vector<T>::reverse_iterator;
+    using reverse_iterator = NotImplemented<T>;
     template<typename T>
-    using const_reverse_iterator =
-        typename std::vector<T>::const_reverse_iterator;
+    using const_reverse_iterator = NotImplemented<T>;
 
     template<typename T>
     inline iterator<T>
-    begin() noexcept { return (get_vector<T>().begin()); }
+    begin() noexcept {
+        BUG();
+    }
 
     template<typename T>
     inline iterator<T>
-    end() noexcept { return (get_vector<T>().end()); }
+    end() noexcept {
+        BUG();
+    }
 
     template<typename T>
     inline const_iterator<T>
-    begin () const noexcept { return (get_vector<T>().begin()); }
+    begin () const noexcept {
+        BUG();
+    }
 
     template<typename T>
     inline const_iterator<T>
-    end () const noexcept { return (get_vector<T>().end()); }
+    end () const noexcept {
+        BUG();
+    }
 
     template<typename T>
     inline reverse_iterator<T>
-    rbegin() noexcept { return (get_vector<T>().rbegin()); }
+    rbegin() noexcept {
+        BUG();
+    }
 
     template<typename T>
     inline reverse_iterator<T>
-    rend() noexcept { return (get_vector<T>().rend()); }
+    rend() noexcept {
+        BUG();
+    }
 
     template<typename T>
     inline const_reverse_iterator<T>
-    rbegin () const noexcept { return (get_vector<T>().rbegin()); }
+    rbegin () const noexcept {
+        BUG();
+    }
 
     template<typename T>
     inline const_reverse_iterator<T>
-    rend () const noexcept { return (get_vector<T>().rend()); }
+    rend () const noexcept {
+        BUG();
+    }
 
 private:
 
     template<typename T>
-    inline static std::unordered_map<const HeteroVector *, std::vector<T>>
+    inline static std::unordered_map<const HeteroVector *,
+									 far_memory::DataFrameVector<T>>
         vectors_ {  };
 
     std::vector<std::function<void(HeteroVector &)>>    clear_functions_;

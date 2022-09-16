@@ -29,20 +29,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ----------------------------------------------------------------------------
 
+#include "dataframe_vector.hpp"
+
 namespace hmdf
 {
 
 template<typename T>
 static inline void
-_sort_by_sorted_index_(std::vector<T> &to_be_sorted,
-                       std::vector<size_t> &sorting_idxs,
+_sort_by_sorted_index_(far_memory::FarMemManager *manager,
+                       far_memory::DataFrameVector<T> &to_be_sorted,
+                       far_memory::DataFrameVector<unsigned long long> &sorting_idxs,
                        size_t idx_s)  {
-
-    std::vector<T> tmp;
-    tmp.resize(sorting_idxs.size());
-    for (uint64_t i = 0; i < sorting_idxs.size(); i++) {
-        tmp[i] = to_be_sorted[sorting_idxs[i]];
-    }
+    auto tmp = to_be_sorted.shuffle_data_by_idx(manager, sorting_idxs);
     to_be_sorted = std::move(tmp);
 }
 

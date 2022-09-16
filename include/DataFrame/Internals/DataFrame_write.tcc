@@ -40,7 +40,6 @@ template<typename I, typename H>
 template<typename S, typename ...Ts>
 bool DataFrame<I, H>::
 write (S &o, bool values_only, io_format iof) const  {
-
     if (iof != io_format::csv && iof != io_format::json)
         throw NotImplemented("write(): This io_format is not implemented");
 
@@ -98,21 +97,36 @@ write (S &o, bool values_only, io_format iof) const  {
         else
             o << (iof == io_format::csv ? "<N/A>:" : "\"T\":\"N/A\",");
 
+        far_memory::DerefScope scope;
+        constexpr uint64_t kNumElementsPerScope = 1024;
+        auto* indices                           = const_cast<IndexVecType*>(&indices_);
+
         if (iof == io_format::json)  {
             o << "\"D\":[";
-            if (! indices_.empty())  {
-                _write_json_df_index_(o, indices_[0]);
-                for (size_type i = 1; i < indices_.size(); ++i)  {
+            if (! indices->empty())  {
+                auto it = indices->cfbegin(scope);
+                _write_json_df_index_(o, *it);
+                for (size_type i = 1; i < indices->size(); ++i, ++it)  {
+                    if (unlikely(i % kNumElementsPerScope == 0)) {
+                        scope.renew();
+                        it.renew(scope);
+                    }
                     o << ',';
-                    _write_json_df_index_(o, indices_[i]);
+                    _write_json_df_index_(o, *it);
                 }
             }
             o << "]}";
             need_pre_comma = true;
         }
         else  {
-            for (size_type i = 0; i < indices_.size(); ++i)
-                _write_csv_df_index_(o, indices_[i]) << ',';
+            auto it = indices->cfbegin(scope);
+            for (size_type i = 0; i < indices->size(); ++i, ++it) {
+                if (unlikely(i % kNumElementsPerScope == 0)) {
+                    scope.renew();
+                    it.renew(scope);
+                }
+                _write_csv_df_index_(o, *it) << ',';
+            }
             o << '\n';
         }
     }
@@ -138,8 +152,7 @@ write (S &o, bool values_only, io_format iof) const  {
         }
     }
 
-    if (iof == io_format::json)
-        o << "\n}";
+    if (iof == io_format::json) o << "\n}";
     o << std::endl;
     return (true);
 }

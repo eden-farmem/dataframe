@@ -29,6 +29,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#include "dataframe_vector.hpp"
+
 #include <DataFrame/Vectors/HeteroVector.h>
 
 #include <cmath>
@@ -318,7 +320,8 @@ template<typename T, typename U>
 struct type_declare;
 
 template<typename U>
-struct type_declare<HeteroVector, U>  { using type = std::vector<U>; };
+struct type_declare<HeteroVector, U>  { using type =
+		far_memory::DataFrameVector<U>; };
 
 template<typename U>
 struct type_declare<HeteroView, U>  { using type = VectorView<U>; };

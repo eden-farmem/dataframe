@@ -27,6 +27,8 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "manager.hpp"
+
 #include <DataFrame/DataFrame.h>
 #include <DataFrame/GroupbyAggregators.h>
 
@@ -36,27 +38,30 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <future>
 #include <limits>
 #include <random>
+#include <type_traits>
 
 // ----------------------------------------------------------------------------
 
 namespace hmdf
 {
+template <typename I, typename H>
+DataFrame<I, H>::DataFrame(far_memory::FarMemManager* manager)
+    : indices_(std::move(manager->allocate_dataframe_vector<I>())) {}
 
 template<typename I, typename H>
-template<typename CF, typename ... Ts>
-void DataFrame<I, H>::sort_common_(DataFrame<I, H> &df, CF &&comp_func)  {
+template<bool Ascending, typename T, typename ... Ts>
+void DataFrame<I, H>::sort_common_(far_memory::FarMemManager *manager,
+                                   DataFrame<I, H> &df, const T &vec)  {
 
     const size_type         idx_s = df.indices_.size();
-    std::vector<size_type>  sorting_idxs(idx_s, 0);
+    auto sorting_idxs = const_cast<T *>(&vec)->
+        template get_sorted_indices<Ascending>(manager, false);
 
-    std::iota(sorting_idxs.begin(), sorting_idxs.end(), 0);
-    std::sort(sorting_idxs.begin(), sorting_idxs.end(), comp_func);
-
-    sort_functor_<Ts ...>   functor (sorting_idxs, idx_s);
+    sort_functor_<Ts ...>   functor (manager, sorting_idxs, idx_s);
 
     for (auto &iter : df.data_)
         iter.change(functor);
-    _sort_by_sorted_index_(df.indices_, sorting_idxs, idx_s);
+    _sort_by_sorted_index_(manager, df.indices_, sorting_idxs, idx_s);
 }
 
 // ----------------------------------------------------------------------------
@@ -655,38 +660,32 @@ void DataFrame<I, H>::shrink_to_fit ()  {
 
 template<typename I, typename H>
 template<typename T, typename ...Ts>
-void DataFrame<I, H>::sort(const char *name, sort_spec dir)  {
+void DataFrame<I, H>::sort(far_memory::FarMemManager *manager,
+                           const char *name, sort_spec dir)  {
 
     make_consistent<Ts ...>();
 
     if (! ::strcmp(name, DF_INDEX_COL_NAME))  {
-        auto    a = [this](size_type i, size_type j) -> bool  {
-                        return (this->indices_[i] < this->indices_[j]);
-                    };
-        auto    d = [this](size_type i, size_type j) -> bool  {
-                        return (this->indices_[i] > this->indices_[j]);
-                    };
-
-
         if (dir == sort_spec::ascen)
-            sort_common_<decltype(a), Ts ...>(*this, std::move(a));
+            sort_common_<true, decltype(indices_), Ts ...>(manager,
+                                                           *this, indices_);
         else
-            sort_common_<decltype(d), Ts ...>(*this, std::move(d));
+            sort_common_<false, decltype(indices_), Ts ...>(manager,
+                                                            *this, indices_);
     }
     else  {
-        const std::vector<T>    &idx_vec = get_column<T>(name);
-
-        auto    a = [&x = idx_vec](size_type i, size_type j) -> bool {
-                        return (x[i] < x[j]);
-                    };
-        auto    d = [&x = idx_vec](size_type i, size_type j) -> bool {
-                        return (x[i] > x[j]);
-                    };
+        auto    &idx_vec = get_column<T>(name);
 
         if (dir == sort_spec::ascen)
-            sort_common_<decltype(a), Ts ...>(*this, std::move(a));
+            sort_common_<true,
+                         typename std::remove_reference<decltype(idx_vec)>::type,
+                         Ts ...>(
+                 manager, *this, idx_vec);
         else
-            sort_common_<decltype(d), Ts ...>(*this, std::move(d));
+            sort_common_<false,
+                         typename std::remove_reference<decltype(idx_vec)>::type,
+                         Ts ...>(
+                 manager, *this, idx_vec);
     }
 
     return;
@@ -1095,117 +1094,43 @@ sort_async(const char *name1, sort_spec dir1,
 template<typename I, typename H>
 template<typename F, typename T, typename ...Ts>
 DataFrame<I, H> DataFrame<I, H>::
-groupby (F &&func, const char *gb_col_name, sort_state already_sorted) const  {
+groupby (far_memory::FarMemManager *manager, F &&func, const char *gb_col_name,
+         sort_state already_sorted) const  {
 
     DataFrame   tmp_df = *this;
 
-    if (already_sorted == sort_state::not_sorted)
-        tmp_df.sort<T, Ts ...>(gb_col_name, sort_spec::ascen);
-
-    DataFrame   result;
-
-    for (const auto &iter : tmp_df.column_tb_)  {
-        add_col_functor_<Ts ...>    functor (iter.first.c_str(), result);
-
-        tmp_df.data_[iter.second].change(functor);
+    // Sort the whole dataframe by gb_col.
+    if (already_sorted == sort_state::not_sorted)  {
+        tmp_df.sort<T, Ts ...>(manager, gb_col_name, sort_spec::ascen);
     }
 
-    size_type   marker = 0;
+    DataFrame   result(manager);
 
+    // Do aggregation.
     if (! ::strcmp(gb_col_name, DF_INDEX_COL_NAME))  { // Index
-        const size_type vec_size = tmp_df.indices_.size();
+		auto gb_vec = get_index();
+        groupby_functor_<I, F, Ts...> functor(manager, DF_INDEX_COL_NAME,
+                                              gb_vec, func, result);
+		functor(gb_vec);
 
-        for (size_type i = 0; i < vec_size; ++i)  {
-            if (tmp_df.indices_[i] != tmp_df.indices_[marker])  {
-                result.append_index(tmp_df.indices_[marker]);
-                for (const auto &iter : tmp_df.column_tb_)  {
-                    groupby_functor_<F, Ts...>  functor(iter.first.c_str(),
-                                                        marker,
-                                                        i,
-                                                        tmp_df.indices_,
-                                                        func,
-                                                        result);
+        for (const auto& iter : tmp_df.column_tb_) {
+            groupby_functor_<I, F, Ts...> functor(manager, iter.first.c_str(),
+                                               gb_vec, func, result);
 
-                    tmp_df.data_[iter.second].change(functor);
-                }
-
-                marker = i;
-            }
-        }
-        if (marker < vec_size)  {
-            result.append_index(tmp_df.indices_[vec_size - 1]);
-            for (const auto &iter : tmp_df.column_tb_)  {
-                groupby_functor_<F, Ts...>  functor(iter.first.c_str(),
-                                                    marker,
-                                                    vec_size,
-                                                    tmp_df.indices_,
-                                                    func,
-                                                    result);
-
-                tmp_df.data_[iter.second].change(functor);
-            }
+            tmp_df.data_[iter.second].change(functor);
         }
     }
     else  { // Non-index column
-        const std::vector<T>    &gb_vec = tmp_df.get_column<T>(gb_col_name);
-        const size_type         vec_size = gb_vec.size();
+        const auto &gb_vec = tmp_df.get_column<T>(gb_col_name);
+        groupby_functor_<T, F, Ts...> functor(manager, DF_INDEX_COL_NAME,
+                                              gb_vec, func, result);
+		functor(get_index());
 
-        for (size_type i = 0; i < vec_size; ++i)  {
-            if (gb_vec[i] != gb_vec[marker])  {
-                groupby_functor_<F, IndexType>  ts_functor(DF_INDEX_COL_NAME,
-                                                           marker,
-                                                           i,
-                                                           tmp_df.indices_,
-                                                           func,
-                                                           result);
+        for (const auto& iter : tmp_df.column_tb_) {
+            groupby_functor_<T, F, Ts...> functor(manager, iter.first.c_str(),
+                                              gb_vec, func, result);
 
-                ts_functor(tmp_df.indices_);
-                result.append_column<T>(gb_col_name,
-                                        gb_vec [marker],
-                                        nan_policy::dont_pad_with_nans);
-
-                for (const auto &iter : tmp_df.column_tb_)  {
-                    if (iter.first != gb_col_name)  {
-                        groupby_functor_<F, Ts...>  functor(iter.first.c_str(),
-                                                            marker,
-                                                            i,
-                                                            tmp_df.indices_,
-                                                            func,
-                                                            result);
-
-                        tmp_df.data_[iter.second].change(functor);
-                    }
-                }
-
-                marker = i;
-            }
-        }
-
-        if (marker < vec_size)  {
-            groupby_functor_<F, IndexType>  ts_functor(DF_INDEX_COL_NAME,
-                                                       marker,
-                                                       vec_size,
-                                                       tmp_df.indices_,
-                                                       func,
-                                                       result);
-
-            ts_functor(tmp_df.indices_);
-            result.append_column<T>(gb_col_name,
-                                    gb_vec [vec_size - 1],
-                                    nan_policy::dont_pad_with_nans);
-
-            for (const auto &iter : tmp_df.column_tb_)  {
-                if (iter.first != gb_col_name)  {
-                    groupby_functor_<F, Ts...>  functor(iter.first.c_str(),
-                                                        marker,
-                                                        vec_size,
-                                                        tmp_df.indices_,
-                                                        func,
-                                                        result);
-
-                    tmp_df.data_[iter.second].change(functor);
-                }
-            }
+            tmp_df.data_[iter.second].change(functor);
         }
     }
 
@@ -1217,12 +1142,14 @@ groupby (F &&func, const char *gb_col_name, sort_state already_sorted) const  {
 template<typename I, typename H>
 template<typename F, typename T, typename ...Ts>
 std::future<DataFrame<I, H>>
-DataFrame<I, H>::groupby_async (F &&func,
+DataFrame<I, H>::groupby_async (far_memory::FarMemManager *manager,
+                                F &&func,
                                 const char *gb_col_name,
                                 sort_state already_sorted) const  {
 
     return (std::async(std::launch::async,
                        &DataFrame::groupby<F, T, Ts ...>,
+                           manager,
                            this,
                            std::move(func),
                            gb_col_name,
