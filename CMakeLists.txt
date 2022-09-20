@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -Wno-subobject-linkage")
+set(CMAKE_AIFM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../other-systems/aifm")
 
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
         add_definitions(-DDEBUG)
@@ -86,9 +87,9 @@ set(${LIBRARY_TARGET_NAME}_SRC
   src/Utils/DateTime.cc
 )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/aifm/inc/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/bindings/cc/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/inc/)
+include_directories(${CMAKE_AIFM_DIR}/aifm/inc/)
+include_directories(${CMAKE_AIFM_DIR}/shenango/bindings/cc/)
+include_directories(${CMAKE_AIFM_DIR}/shenango/inc/)
 
 # List of header files.
 set(${LIBRARY_TARGET_NAME}_HDR
@@ -127,22 +128,22 @@ set(${LIBRARY_TARGET_NAME}_HDR
 )
 
 # Link Shenango.
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/bindings/cc/)
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/)
+link_directories(${CMAKE_AIFM_DIR}/shenango/bindings/cc/)
+link_directories(${CMAKE_AIFM_DIR}/shenango/)
 link_libraries(rt++ runtime net base)
 
 # Linker script.
-set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -T${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/base/base.ld")
+set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -T${CMAKE_AIFM_DIR}/shenango/base/base.ld")
 
 # Link AIFM.
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/aifm)
+link_directories(${CMAKE_AIFM_DIR}/aifm)
 link_libraries(aifm)
 
 # Link Pthread.
 link_libraries(pthread)
 
 # Link RDMA.
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../other-systems/aifm/shenango/rdma-core/build/lib/statics)
+link_directories(${CMAKE_AIFM_DIR}/shenango/rdma-core/build/lib/statics)
 link_libraries(mlx5 ibverbs)
 
 # Link netlink.
