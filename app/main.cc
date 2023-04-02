@@ -9,11 +9,24 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unistd.h>
 
 using namespace hmdf;
 
+#define INPUT /home/ayelam/data/yellow_tripdata_2016-01_simple.csv
+#define STRING(s) #s
+#define MACRO_TO_STR(m) STRING(m)
+
 // Download dataset at https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page.
 // The following code is implemented based on the format of 2016 datasets.
+
+/* save a number to a file */
+void fwrite_number(const char* name, unsigned long number) {
+	FILE* fp = fopen(name, "w");
+	fprintf(fp, "%lu", number);
+	fflush(fp);
+	fclose(fp);
+}
 
 static double haversine(double lat1, double lon1, double lat2, double lon2)
 {
@@ -36,7 +49,7 @@ StdDataFrame<uint64_t> load_data()
 {
     return read_csv<-1, int, SimpleTime, SimpleTime, int, double, double, double, int, char, double,
                     double, int, double, double, double, double, double, double, double>(
-        "/home/ayelam/data/yellow_tripdata_2016-01.csv", "VendorID", "tpep_pickup_datetime", "tpep_dropoff_datetime",
+        MACRO_TO_STR(INPUT), "VendorID", "tpep_pickup_datetime", "tpep_dropoff_datetime",
         "passenger_count", "trip_distance", "pickup_longitude", "pickup_latitude", "RatecodeID",
         "store_and_fwd_flag", "dropoff_longitude", "dropoff_latitude", "payment_type",
         "fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount", "improvement_surcharge",
@@ -245,6 +258,12 @@ void analyze_trip_durations_of_timestamps(StdDataFrame<uint64_t>& df, const char
 
 int main()
 {
+    /* write pid and wait some time for the saved pid to be added to 
+     * the cgroup to enforce fastswap limits */
+	std::cout << "writing out pid " << getpid() << std::endl;
+	fwrite_number("main_pid", getpid());
+    sleep(1);
+
     std::chrono::time_point<std::chrono::steady_clock> times[10];
     auto df  = load_data();
     times[0] = std::chrono::steady_clock::now();
