@@ -7,6 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -g -no-pie -fno-pie")
 
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+        add_definitions(-DDEBUG)
+endif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+
 # We use:
 # - InstallBasicPackageFiles
 #       (http://robotology.github.io/ycm/gh-pages/v0.8/
