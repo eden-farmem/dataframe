@@ -86,6 +86,8 @@ set(${LIBRARY_TARGET_NAME}_SRC
   src/Utils/DateTime.cc
 )
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/inc/)
+
 # List of header files.
 set(${LIBRARY_TARGET_NAME}_HDR
   include/DataFrame/Vectors/VectorView.h
@@ -122,6 +124,21 @@ set(${LIBRARY_TARGET_NAME}_HDR
   include/DataFrame/Utils/FixedSizeString.h
 )
 
+# Link Shenango shim first
+file (STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/jemalloc/je_libs JEMALLOC_LIBS)
+if(NOT DEFINED JEMALLOC_LIBS)
+message(FATAL_ERROR "JEMALLOC_LIBS not found. Please run ./setup.sh -je -f and point to je_libs file")
+endif()
+set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--wrap=main ${JEMALLOC_LIBS}")
+link_libraries(jemalloc shim dl)
+
+# Link Shenango
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/)
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/bindings/cc/)
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/shim)
+link_libraries(rt++ runtime rmem net base)
+set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -T${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/base/base.ld -no-pie -lm")
+link_libraries(pthread rdmacm ibverbs)
 
 # Build the library
 if (UNIX)
