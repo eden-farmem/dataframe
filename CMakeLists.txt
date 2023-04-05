@@ -86,7 +86,8 @@ set(${LIBRARY_TARGET_NAME}_SRC
   src/Utils/DateTime.cc
 )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/inc/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/inc)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/bindings/cc)
 
 # List of header files.
 set(${LIBRARY_TARGET_NAME}_HDR
@@ -139,6 +140,9 @@ link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/shim)
 link_libraries(rt++ runtime rmem net base)
 set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -T${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/base/base.ld -no-pie -lm")
 link_libraries(pthread rdmacm ibverbs)
+
+# turn off threading usage
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCSV_IO_NO_THREAD")
 
 # Build the library
 if (UNIX)

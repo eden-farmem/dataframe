@@ -13,7 +13,6 @@
 
 using namespace hmdf;
 
-#define INPUT /home/ayelam/data/yellow_tripdata_2016-01_simple.csv
 #define STRING(s) #s
 #define MACRO_TO_STR(m) STRING(m)
 
@@ -26,6 +25,11 @@ void fwrite_number(const char* name, unsigned long number) {
 	fprintf(fp, "%lu", number);
 	fflush(fp);
 	fclose(fp);
+}
+
+/* save unix timestamp of a checkpoint */
+void save_checkpoint(const char* name) {
+	fwrite_number(name, time(NULL));
 }
 
 static double haversine(double lat1, double lon1, double lat2, double lon2)
@@ -264,8 +268,12 @@ int main()
 	fwrite_number("main_pid", getpid());
     sleep(1);
 
+    save_checkpoint("load_start");
+    std::cout << "Loading input data from: " << MACRO_TO_STR(INPUT) << std::endl;
     std::chrono::time_point<std::chrono::steady_clock> times[10];
     auto df  = load_data();
+
+    save_checkpoint("run_start");
     times[0] = std::chrono::steady_clock::now();
     print_number_vendor_ids_and_unique(df);
     times[1] = std::chrono::steady_clock::now();
@@ -285,6 +293,7 @@ int main()
     times[8] = std::chrono::steady_clock::now();
     analyze_trip_durations_of_timestamps<char>(df, "pickup_month");
     times[9] = std::chrono::steady_clock::now();
+    save_checkpoint("run_end");
 
     for (uint32_t i = 1; i < std::size(times); i++) {
         std::cout << "Step " << i << ": "
