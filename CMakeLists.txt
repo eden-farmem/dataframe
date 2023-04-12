@@ -131,7 +131,7 @@ if(NOT DEFINED JEMALLOC_LIBS)
 message(FATAL_ERROR "JEMALLOC_LIBS not found. Please run ./setup.sh -je -f and point to je_libs file")
 endif()
 set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--wrap=main ${JEMALLOC_LIBS}")
-link_libraries(jemalloc shim dl)
+link_libraries(jemalloc shim dl jemalloc)
 
 # Link Shenango
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/)

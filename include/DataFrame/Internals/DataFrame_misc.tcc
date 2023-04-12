@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <DataFrame/DataFrame.h>
 #include <CSV/csv.hpp>
 #include "simple_time.hpp"
+#include "pgfault.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -672,23 +673,35 @@ void
 DataFrame<I, H>::
 sel_load_functor_<IT, Ts ...>::
 operator() (const std::vector<T> &vec)  {
-
+    int i, rdahead;
     std::vector<T>  new_col;
     const size_type vec_size = vec.size();
 
     new_col.reserve(std::min(sel_indices.size(), vec_size));
-    for (const auto citer : sel_indices)  {
+
+    for (i = 0; i < sel_indices.size(); ++i)  {
+        hint_read_fault((void*) &sel_indices[i]);
+        const auto citer = sel_indices[i];
         const size_type index =
             citer >= 0 ? citer : static_cast<IT>(indices_size) + citer;
 
-        if (index < vec_size)
+        if (index < vec_size) {
+            hint_write_fault((void*) ((size_type) new_col.data() + i * sizeof(T)));
+            hint_read_fault((void*) &vec[index]);
             new_col.push_back(vec[index]);
+        }
         else
             break;
     }
     df.load_column(name, std::move(new_col), nan_policy::dont_pad_with_nans);
     return;
 }
+
+
+    // printf("readahead = %ld\n", readahead((void*) new_col.data(), new_col.capacity() * sizeof(T)));
+    // printf("capacity = %ld\n", new_col.capacity() * sizeof(T));
+    // hint_write_fault_rdahead((void*) new_col.data(),
+    //     readahead((void*) new_col.data(), new_col.capacity() * sizeof(T)));
 
 // ----------------------------------------------------------------------------
 

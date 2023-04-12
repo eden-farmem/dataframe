@@ -11,6 +11,8 @@
 #include <string>
 #include <unistd.h>
 
+#include "pgfault.h"
+
 using namespace hmdf;
 
 #define STRING(s) #s
@@ -54,7 +56,7 @@ StdDataFrame<uint64_t> load_data()
     return read_csv<-1, int, SimpleTime, SimpleTime, int, double, double, double, int, char, double,
                     double, int, double, double, double, double, double, double, double>(
         MACRO_TO_STR(INPUT), "VendorID", "tpep_pickup_datetime", "tpep_dropoff_datetime",
-        "passenger_count", "trip_distance", "pickup_longitude", "pickup_latitude", "RatecodeID",
+        "passenger_count", "trip_distance", "pickup_longitude", "pickup_latitude", "RateCodeID",
         "store_and_fwd_flag", "dropoff_longitude", "dropoff_latitude", "payment_type",
         "fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount", "improvement_surcharge",
         "total_amount");
@@ -101,7 +103,9 @@ void calculate_trip_duration(StdDataFrame<uint64_t>& df)
     assert(pickup_time_vec.size() == dropoff_time_vec.size());
 
     std::vector<uint64_t> duration_vec;
+    duration_vec.reserve(pickup_time_vec.size());
     for (uint64_t i = 0; i < pickup_time_vec.size(); i++) {
+        hint_write_fault((void*) ((uint64_t) duration_vec.data() + i * sizeof(uint64_t)));
         auto pickup_time_second  = pickup_time_vec[i].to_second();
         auto dropoff_time_second = dropoff_time_vec[i].to_second();
         duration_vec.push_back(dropoff_time_second - pickup_time_second);
@@ -159,7 +163,9 @@ void calculate_haversine_distance_column(StdDataFrame<uint64_t>& df)
     assert(pickup_longitude_vec.size() == dropoff_longitude_vec.size());
     assert(pickup_longitude_vec.size() == dropoff_latitude_vec.size());
     std::vector<double> haversine_distance_vec;
+    haversine_distance_vec.reserve(pickup_longitude_vec.size());
     for (uint64_t i = 0; i < pickup_longitude_vec.size(); i++) {
+        hint_write_fault((void*) ((uint64_t) haversine_distance_vec.data() + i * sizeof(double)));
         haversine_distance_vec.push_back(haversine(pickup_latitude_vec[i], pickup_longitude_vec[i],
                                                    dropoff_latitude_vec[i],
                                                    dropoff_longitude_vec[i]));

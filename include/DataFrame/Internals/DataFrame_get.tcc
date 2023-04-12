@@ -35,6 +35,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <random>
 #include <unordered_set>
 
+#include "pgfault.h"
+
 // ----------------------------------------------------------------------------
 
 namespace hmdf
@@ -1080,15 +1082,20 @@ get_data_by_sel (const char *name, F &sel_functor) const  {
 
     col_indices.reserve(idx_s / 2);
     for (size_type i = 0; i < col_s; ++i)
-        if (sel_functor (indices_[i], vec[i]))
+        if (sel_functor (indices_[i], vec[i])) {
+            hint_write_fault((void*) ((size_type) col_indices.data() + col_indices.size() * sizeof(T)));
             col_indices.push_back(i);
+        }
 
     DataFrame       df;
     IndexVecType    new_index;
 
     new_index.reserve(col_indices.size());
-    for (const auto citer: col_indices)
-        new_index.push_back(indices_[citer]);
+
+    for (int i = 0; i < col_indices.size(); ++i)  {
+        hint_read_fault((void*) &col_indices[i]);
+        new_index.push_back(indices_[col_indices[i]]);
+    }
     df.load_index(std::move(new_index));
 
     for (auto col_citer : column_tb_)  {

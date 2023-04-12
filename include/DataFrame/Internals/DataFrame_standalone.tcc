@@ -29,6 +29,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ----------------------------------------------------------------------------
 
+#include "pgfault.h"
+
 namespace hmdf
 {
 
@@ -41,6 +43,8 @@ _sort_by_sorted_index_(std::vector<T> &to_be_sorted,
     std::vector<T> tmp;
     tmp.resize(sorting_idxs.size());
     for (uint64_t i = 0; i < sorting_idxs.size(); i++) {
+        hint_read_fault(&sorting_idxs[i]);
+        hint_write_fault((void*) ((uint64_t) tmp.data() + i * sizeof(T)));
         tmp[i] = to_be_sorted[sorting_idxs[i]];
     }
     to_be_sorted = std::move(tmp);
