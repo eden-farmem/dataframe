@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 3.14)
 project (DataFrame VERSION 1.0.0)
 
+option(EDEN_LIBS "Link Eden libraries" OFF)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Produce cmpile_commands.json
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -125,6 +127,7 @@ set(${LIBRARY_TARGET_NAME}_HDR
   include/DataFrame/Utils/FixedSizeString.h
 )
 
+if (EDEN_LIBS)
 # Link Shenango shim first
 file (STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/jemalloc/je_libs JEMALLOC_LIBS)
 if(NOT DEFINED JEMALLOC_LIBS)
@@ -140,6 +143,7 @@ link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/shim)
 link_libraries(rt++ runtime rmem net base)
 set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -T${CMAKE_CURRENT_SOURCE_DIR}/../../../eden/base/base.ld -no-pie -lm")
 link_libraries(pthread rdmacm ibverbs)
+endif(EDEN_LIBS)
 
 # turn off threading usage
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCSV_IO_NO_THREAD")
