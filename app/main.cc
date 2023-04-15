@@ -105,9 +105,11 @@ void calculate_trip_duration(StdDataFrame<uint64_t>& df)
     std::vector<uint64_t> duration_vec;
     duration_vec.reserve(pickup_time_vec.size());
     for (uint64_t i = 0; i < pickup_time_vec.size(); i++) {
-        hint_write_fault((void*) ((uint64_t) duration_vec.data() + i * sizeof(uint64_t)));
+        /*15 = 1.1%*/ hint_read_fault((void*) ((uint64_t) pickup_time_vec.data() + i * sizeof(SimpleTime)));
+        /*15 = 1.1%*/ hint_read_fault((void*) ((uint64_t) dropoff_time_vec.data() + i * sizeof(SimpleTime)));
         auto pickup_time_second  = pickup_time_vec[i].to_second();
         auto dropoff_time_second = dropoff_time_vec[i].to_second();
+        /*28 = 0.56%*/ hint_write_fault((void*) ((uint64_t) duration_vec.data() + i * sizeof(uint64_t)));
         duration_vec.push_back(dropoff_time_second - pickup_time_second);
     }
     df.load_column("duration", std::move(duration_vec), nan_policy::dont_pad_with_nans);
@@ -165,7 +167,11 @@ void calculate_haversine_distance_column(StdDataFrame<uint64_t>& df)
     std::vector<double> haversine_distance_vec;
     haversine_distance_vec.reserve(pickup_longitude_vec.size());
     for (uint64_t i = 0; i < pickup_longitude_vec.size(); i++) {
-        hint_write_fault((void*) ((uint64_t) haversine_distance_vec.data() + i * sizeof(double)));
+        /*23 = 0.8%*/   hint_read_fault((void*) ((uint64_t) pickup_longitude_vec.data() + i * sizeof(double)));
+        /*23 = 0.8%*/   hint_read_fault((void*) ((uint64_t) pickup_latitude_vec.data() + i * sizeof(double)));
+        /*24 = 0.%*/    hint_read_fault((void*) ((uint64_t) dropoff_longitude_vec.data() + i * sizeof(double)));
+        /*24 = 0.7%*/   hint_read_fault((void*) ((uint64_t) dropoff_latitude_vec.data() + i * sizeof(double)));
+        /*27 = 0.56%*/  hint_write_fault((void*) ((uint64_t) haversine_distance_vec.data() + i * sizeof(double)));
         haversine_distance_vec.push_back(haversine(pickup_latitude_vec[i], pickup_longitude_vec[i],
                                                    dropoff_latitude_vec[i],
                                                    dropoff_longitude_vec[i]));
@@ -241,15 +247,39 @@ void analyze_trip_timestamp(StdDataFrame<uint64_t>& df)
     std::cout << std::endl;
 }
 
+template<typename T> void copy_with_hints(std::vector<T>& src, std::vector<T>& dst)
+{
+    dst.reserve(src.size());
+    for(int i = 0; i < src.size(); i++) {
+        hint_read_fault((void*)((uint64_t)src.data() + i * sizeof(T)));
+        hint_write_fault((void*)((uint64_t)dst.data() + i * sizeof(T)));
+        dst.push_back(src[i]);
+    }
+}
+
 template <typename T_Key>
 void analyze_trip_durations_of_timestamps(StdDataFrame<uint64_t>& df, const char* key_col_name)
 {
     std::cout << "analyze_trip_durations_of_timestamps() on key = " << key_col_name << std::endl;
 
     StdDataFrame<uint64_t> df_key_duration;
-    auto copy_index        = df.get_index();
-    auto copy_key_col      = df.get_column<T_Key>(key_col_name);
-    auto copy_key_duration = df.get_column<uint64_t>("duration");
+
+    /*13 = 1.1%*/ /* hint_write_ for new memory */
+    /*22 = 1%*/ /* read for dfindex */
+    std::vector<size_t> copy_index;
+    copy_with_hints(df.get_index(), copy_index);
+
+    std::vector<T_Key> copy_key_col;
+    copy_with_hints(df.get_column<T_Key>(key_col_name), copy_key_col);
+
+    /*17 = 1.1%*/ /* hint_write_ for new memory */
+    /*19 = 1.1%*/ /* read for dfindex */
+    std::vector<uint64_t> copy_key_duration;
+    copy_with_hints(df.get_column<uint64_t>("duration"), copy_key_duration); 
+
+    // auto copy_index        = df.get_index();
+    // auto copy_key_col      = df.get_column<T_Key>(key_col_name);
+    // auto copy_key_duration = df.get_column<uint64_t>("duration");
     df_key_duration.load_data(std::move(copy_index),
                               std::make_pair(key_col_name, std::move(copy_key_col)),
                               std::make_pair("duration", std::move(copy_key_duration)));

@@ -166,8 +166,9 @@ void HeteroVector::change_impl_help_ (T &functor)  {
 // ----------------------------------------------------------------------------
 
 template<typename T, typename U>
-void HeteroVector::change_impl_help_ (T &functor) const  {
-
+void HeteroVector::change_impl_help_ (T &functor) const
+{
+    /*7. 2.23%*/ /* hint_write_ for citer? */
     const auto  citer = vectors_<U>.find (this);
 
     if (citer != vectors_<U>.end())

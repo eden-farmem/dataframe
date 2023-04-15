@@ -39,6 +39,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <map>
 #include <numeric>
 
+#include "pgfault.h"
+
 // ----------------------------------------------------------------------------
 
 namespace hmdf
@@ -1767,7 +1769,14 @@ struct MedianVisitor  {
                 const H &values_begin,
                 const H &values_end)  {
 
-        std::vector<typename H::value_type> tmp(values_begin, values_end);
+        std::vector<typename H::value_type> tmp;
+        tmp.reserve(std::distance(values_begin,values_end));
+        for (auto iter = values_begin; iter < values_end; ++iter) {
+            /*30 = 0.43%*/ hint_read_fault((void*)&(*iter));
+            /*8 = 2.2%*/ hint_write_fault((void*)((uint64_t) tmp.data() + tmp.size() * sizeof(T)));
+            tmp.push_back(*iter);
+        }
+
         const size_type vec_size = tmp.size();
         std::nth_element(tmp.begin(), tmp.begin() + vec_size / 2, tmp.end());
         result_ = tmp[tmp.size() / 2];

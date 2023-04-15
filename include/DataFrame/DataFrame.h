@@ -42,6 +42,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <tuple>
 #include <typeindex>
 
+#include "pgfault.h"
+
 // ----------------------------------------------------------------------------
 
 namespace hmdf

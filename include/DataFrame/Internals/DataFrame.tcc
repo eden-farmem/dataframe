@@ -47,7 +47,10 @@ template<typename CF, typename ... Ts>
 void DataFrame<I, H>::sort_common_(DataFrame<I, H> &df, CF &&comp_func)  {
 
     const size_type         idx_s = df.indices_.size();
-    std::vector<size_type>  sorting_idxs(idx_s, 0);
+    std::vector<size_type>  sorting_idxs(idx_s);
+    for(int i = 0; i < idx_s; ++i)
+        /*14 = 1.11%*/  hint_write_fault((void*)((uint64_t)sorting_idxs.data() + i * sizeof(size_type)));
+    std::fill(sorting_idxs.begin(), sorting_idxs.end(), 0);
 
     std::iota(sorting_idxs.begin(), sorting_idxs.end(), 0);
     std::sort(sorting_idxs.begin(), sorting_idxs.end(), comp_func);
@@ -1095,8 +1098,11 @@ sort_async(const char *name1, sort_spec dir1,
 template<typename I, typename H>
 template<typename F, typename T, typename ...Ts>
 DataFrame<I, H> DataFrame<I, H>::
-groupby (F &&func, const char *gb_col_name, sort_state already_sorted) const  {
-
+groupby (F &&func, const char *gb_col_name, sort_state already_sorted) const 
+{
+    /*16 = 1.1%*/ //hint_read_fault((void*) this);
+    /*19 = 1.1%*/ //hint_write_fault((void*) this);
+    /*12 = 1.25%*/ /* hint_write_ for new memory in constructors */
     DataFrame   tmp_df = *this;
 
     if (already_sorted == sort_state::not_sorted)

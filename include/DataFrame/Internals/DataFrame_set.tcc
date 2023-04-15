@@ -154,6 +154,8 @@ DataFrame<I, H>::load_data (IndexVecType &&indices, Ts&& ... args)  {
                   "Only a StdDataFrame can call load_data()");
 
     size_type       cnt = load_index(std::move(indices));
+
+    /*11 = 1.5%*/ /* hint_write_ for new memory */
     auto            args_tuple = std::tuple<Ts ...>(args ...);
     // const size_type tuple_size =
     //     std::tuple_size<decltype(args_tuple)>::value;

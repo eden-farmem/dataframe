@@ -680,14 +680,14 @@ operator() (const std::vector<T> &vec)  {
     new_col.reserve(std::min(sel_indices.size(), vec_size));
 
     for (i = 0; i < sel_indices.size(); ++i)  {
-        hint_read_fault((void*) &sel_indices[i]);
+        /*3 = 8%*/ hint_read_fault((void*) &sel_indices[i]);
         const auto citer = sel_indices[i];
         const size_type index =
             citer >= 0 ? citer : static_cast<IT>(indices_size) + citer;
 
         if (index < vec_size) {
-            hint_write_fault((void*) ((size_type) new_col.data() + i * sizeof(T)));
-            hint_read_fault((void*) &vec[index]);
+            /*1 = 42%*/ hint_write_fault((void*) ((size_type) new_col.data() + i * sizeof(T)));
+            /*2 = 15%*/ hint_read_fault((void*) &vec[index]);
             new_col.push_back(vec[index]);
         }
         else
