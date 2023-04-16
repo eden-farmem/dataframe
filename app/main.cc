@@ -102,11 +102,14 @@ void calculate_trip_duration(StdDataFrame<uint64_t>& df)
     auto& dropoff_time_vec = df.get_column<SimpleTime>("tpep_dropoff_datetime");
     assert(pickup_time_vec.size() == dropoff_time_vec.size());
 
+    hint_read_fault_region_rdahead((void*) pickup_time_vec.data(), pickup_time_vec.size() * sizeof(SimpleTime), EDEN_MAX_READAHEAD);
+    hint_read_fault_region_rdahead((void*) dropoff_time_vec.data(), dropoff_time_vec.size() * sizeof(SimpleTime), EDEN_MAX_READAHEAD);
+
     std::vector<uint64_t> duration_vec;
     duration_vec.reserve(pickup_time_vec.size());
     for (uint64_t i = 0; i < pickup_time_vec.size(); i++) {
-        /*15 = 1.1%*/ hint_read_fault((void*) ((uint64_t) pickup_time_vec.data() + i * sizeof(SimpleTime)));
-        /*15 = 1.1%*/ hint_read_fault((void*) ((uint64_t) dropoff_time_vec.data() + i * sizeof(SimpleTime)));
+        // /*15 = 1.1%*/ hint_read_fault((void*) ((uint64_t) pickup_time_vec.data() + i * sizeof(SimpleTime)));
+        // /*15 = 1.1%*/ hint_read_fault((void*) ((uint64_t) dropoff_time_vec.data() + i * sizeof(SimpleTime)));
         auto pickup_time_second  = pickup_time_vec[i].to_second();
         auto dropoff_time_second = dropoff_time_vec[i].to_second();
         // /*28 = 0.56%*/ hint_write_fault((void*) ((uint64_t) duration_vec.data() + i * sizeof(uint64_t)));
@@ -164,13 +167,19 @@ void calculate_haversine_distance_column(StdDataFrame<uint64_t>& df)
     assert(pickup_longitude_vec.size() == pickup_latitude_vec.size());
     assert(pickup_longitude_vec.size() == dropoff_longitude_vec.size());
     assert(pickup_longitude_vec.size() == dropoff_latitude_vec.size());
+
+    hint_read_fault_region_rdahead((void*) pickup_longitude_vec.data(), pickup_longitude_vec.size() * sizeof(double), EDEN_MAX_READAHEAD);
+    hint_read_fault_region_rdahead((void*) pickup_latitude_vec.data(), pickup_latitude_vec.size() * sizeof(double), EDEN_MAX_READAHEAD);
+    hint_read_fault_region_rdahead((void*) dropoff_longitude_vec.data(), dropoff_longitude_vec.size() * sizeof(double), EDEN_MAX_READAHEAD);
+    hint_read_fault_region_rdahead((void*) dropoff_latitude_vec.data(), dropoff_latitude_vec.size() * sizeof(double), EDEN_MAX_READAHEAD);
+
     std::vector<double> haversine_distance_vec;
     haversine_distance_vec.reserve(pickup_longitude_vec.size());
     for (uint64_t i = 0; i < pickup_longitude_vec.size(); i++) {
-        /*23 = 0.8%*/   hint_read_fault((void*) ((uint64_t) pickup_longitude_vec.data() + i * sizeof(double)));
-        /*23 = 0.8%*/   hint_read_fault((void*) ((uint64_t) pickup_latitude_vec.data() + i * sizeof(double)));
-        /*24 = 0.%*/    hint_read_fault((void*) ((uint64_t) dropoff_longitude_vec.data() + i * sizeof(double)));
-        /*24 = 0.7%*/   hint_read_fault((void*) ((uint64_t) dropoff_latitude_vec.data() + i * sizeof(double)));
+        // /*23 = 0.8%*/   hint_read_fault((void*) ((uint64_t) pickup_longitude_vec.data() + i * sizeof(double)));
+        // /*23 = 0.8%*/   hint_read_fault((void*) ((uint64_t) pickup_latitude_vec.data() + i * sizeof(double)));
+        // /*24 = 0.%*/    hint_read_fault((void*) ((uint64_t) dropoff_longitude_vec.data() + i * sizeof(double)));
+        // /*24 = 0.7%*/   hint_read_fault((void*) ((uint64_t) dropoff_latitude_vec.data() + i * sizeof(double)));
         // /*27 = 0.56%*/  hint_write_fault((void*) ((uint64_t) haversine_distance_vec.data() + i * sizeof(double)));
         haversine_distance_vec.push_back(haversine(pickup_latitude_vec[i], pickup_longitude_vec[i],
                                                    dropoff_latitude_vec[i],

@@ -1098,8 +1098,10 @@ get_data_by_sel (const char *name, F &sel_functor) const  {
     new_index.reserve(col_indices.size());
 
     for (int i = 0; i < col_indices.size(); ++i)  {
-        /*9 = 2%*/ hint_read_fault((void*) &col_indices[i]);
-        /*9 = 2%*/ hint_read_fault((void*) &indices_[col_indices[i]]);
+        // /*9 = 2%*/ hint_read_fault((void*) &col_indices[i]);
+        hint_seq_read_fault_rdahead((void*) &col_indices[i], EDEN_MAX_READAHEAD);
+        // /*9 = 2%*/ hint_read_fault((void*) &indices_[col_indices[i]]);
+        hint_seq_read_fault_rdahead((void*) &indices_[col_indices[i]], EDEN_MAX_READAHEAD);
         // hint_write_fault((void*) ((size_type) new_index.data() + i * sizeof(IndexType)));
         new_index.push_back(indices_[col_indices[i]]);
     }

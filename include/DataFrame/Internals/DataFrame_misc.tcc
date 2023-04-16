@@ -679,10 +679,11 @@ operator() (const std::vector<T> &vec)  {
 
     new_col.reserve(std::min(sel_indices.size(), vec_size));
     hint_write_fault_region_rdahead((void*) new_col.data(), new_col.size() * sizeof(T), EDEN_MAX_READAHEAD);
-    hint_read_fault_region_rdahead((void*) sel_indices.data(), sel_indices.size() * sizeof(IT), EDEN_MAX_READAHEAD);
+    // hint_read_fault_region_rdahead((void*) sel_indices.data(), sel_indices.size() * sizeof(IT), EDEN_MAX_READAHEAD);
 
     for (i = 0; i < sel_indices.size(); ++i)  {
         // /*3 = 8%*/ hint_read_fault((void*) &sel_indices[i]);
+        hint_seq_read_fault_rdahead((void*) &sel_indices[i], EDEN_MAX_READAHEAD);
         const auto citer = sel_indices[i];
         const size_type index =
             citer >= 0 ? citer : static_cast<IT>(indices_size) + citer;
@@ -699,12 +700,6 @@ operator() (const std::vector<T> &vec)  {
     df.load_column(name, std::move(new_col), nan_policy::dont_pad_with_nans);
     return;
 }
-
-
-    // printf("readahead = %ld\n", readahead((void*) new_col.data(), new_col.capacity() * sizeof(T)));
-    // printf("capacity = %ld\n", new_col.capacity() * sizeof(T));
-    // hint_write_fault_rdahead((void*) new_col.data(),
-    //     readahead((void*) new_col.data(), new_col.capacity() * sizeof(T)));
 
 // ----------------------------------------------------------------------------
 
