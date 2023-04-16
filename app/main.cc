@@ -109,7 +109,7 @@ void calculate_trip_duration(StdDataFrame<uint64_t>& df)
         /*15 = 1.1%*/ hint_read_fault((void*) ((uint64_t) dropoff_time_vec.data() + i * sizeof(SimpleTime)));
         auto pickup_time_second  = pickup_time_vec[i].to_second();
         auto dropoff_time_second = dropoff_time_vec[i].to_second();
-        /*28 = 0.56%*/ hint_write_fault((void*) ((uint64_t) duration_vec.data() + i * sizeof(uint64_t)));
+        // /*28 = 0.56%*/ hint_write_fault((void*) ((uint64_t) duration_vec.data() + i * sizeof(uint64_t)));
         duration_vec.push_back(dropoff_time_second - pickup_time_second);
     }
     df.load_column("duration", std::move(duration_vec), nan_policy::dont_pad_with_nans);
@@ -171,7 +171,7 @@ void calculate_haversine_distance_column(StdDataFrame<uint64_t>& df)
         /*23 = 0.8%*/   hint_read_fault((void*) ((uint64_t) pickup_latitude_vec.data() + i * sizeof(double)));
         /*24 = 0.%*/    hint_read_fault((void*) ((uint64_t) dropoff_longitude_vec.data() + i * sizeof(double)));
         /*24 = 0.7%*/   hint_read_fault((void*) ((uint64_t) dropoff_latitude_vec.data() + i * sizeof(double)));
-        /*27 = 0.56%*/  hint_write_fault((void*) ((uint64_t) haversine_distance_vec.data() + i * sizeof(double)));
+        // /*27 = 0.56%*/  hint_write_fault((void*) ((uint64_t) haversine_distance_vec.data() + i * sizeof(double)));
         haversine_distance_vec.push_back(haversine(pickup_latitude_vec[i], pickup_longitude_vec[i],
                                                    dropoff_latitude_vec[i],
                                                    dropoff_longitude_vec[i]));
@@ -252,7 +252,7 @@ template<typename T> void copy_with_hints(std::vector<T>& src, std::vector<T>& d
     dst.reserve(src.size());
     for(int i = 0; i < src.size(); i++) {
         hint_read_fault((void*)((uint64_t)src.data() + i * sizeof(T)));
-        hint_write_fault((void*)((uint64_t)dst.data() + i * sizeof(T)));
+        // hint_write_fault((void*)((uint64_t)dst.data() + i * sizeof(T)));
         dst.push_back(src[i]);
     }
 }

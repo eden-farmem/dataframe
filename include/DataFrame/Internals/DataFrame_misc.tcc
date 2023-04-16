@@ -686,7 +686,7 @@ operator() (const std::vector<T> &vec)  {
             citer >= 0 ? citer : static_cast<IT>(indices_size) + citer;
 
         if (index < vec_size) {
-            /*1 = 42%*/ hint_write_fault((void*) ((size_type) new_col.data() + i * sizeof(T)));
+            // /*1 = 42%*/ hint_write_fault((void*) ((size_type) new_col.data() + i * sizeof(T)));
             /*2 = 15%*/ hint_read_fault((void*) &vec[index]);
             new_col.push_back(vec[index]);
         }

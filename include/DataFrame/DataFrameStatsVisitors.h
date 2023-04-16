@@ -1773,7 +1773,7 @@ struct MedianVisitor  {
         tmp.reserve(std::distance(values_begin,values_end));
         for (auto iter = values_begin; iter < values_end; ++iter) {
             /*30 = 0.43%*/ hint_read_fault((void*)&(*iter));
-            /*8 = 2.2%*/ hint_write_fault((void*)((uint64_t) tmp.data() + tmp.size() * sizeof(T)));
+            // /*8 = 2.2%*/ hint_write_fault((void*)((uint64_t) tmp.data() + tmp.size() * sizeof(T)));
             tmp.push_back(*iter);
         }
 

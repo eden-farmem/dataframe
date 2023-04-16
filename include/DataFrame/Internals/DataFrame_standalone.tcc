@@ -47,7 +47,7 @@ _sort_by_sorted_index_(std::vector<T> &to_be_sorted,
     for (uint64_t i = 0; i < sorting_idxs.size(); i++) {
         /*4. 1.6%*/ hint_read_fault(&sorting_idxs[i]);
         /*4. 1.6%*/ hint_read_fault(&to_be_sorted[sorting_idxs[i]]);
-        /*5. 2.3%*/ hint_write_fault((void*) ((uint64_t) tmp.data() + i * sizeof(T)));
+        // /*5. 2.3%*/ hint_write_fault((void*) ((uint64_t) tmp.data() + i * sizeof(T)));
         tmp.push_back(to_be_sorted[sorting_idxs[i]]);
     }
     to_be_sorted = std::move(tmp);

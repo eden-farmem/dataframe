@@ -1087,7 +1087,7 @@ get_data_by_sel (const char *name, F &sel_functor) const  {
         /*29. 0.4%*/ hint_read_fault((void*) &indices_[i]);
         /*29. 0.4%*/ hint_read_fault((void*) &vec[i]);
         if (sel_functor (indices_[i], vec[i])) {
-            /*10. 1.6%*/ hint_write_fault((void*) ((size_type) col_indices.data() + col_indices.size() * sizeof(size_type)));
+            // /*10. 1.6%*/ hint_write_fault((void*) ((size_type) col_indices.data() + col_indices.size() * sizeof(size_type)));
             col_indices.push_back(i);
         }
     }
@@ -1100,7 +1100,7 @@ get_data_by_sel (const char *name, F &sel_functor) const  {
     for (int i = 0; i < col_indices.size(); ++i)  {
         /*9 = 2%*/ hint_read_fault((void*) &col_indices[i]);
         /*9 = 2%*/ hint_read_fault((void*) &indices_[col_indices[i]]);
-        hint_write_fault((void*) ((size_type) new_index.data() + i * sizeof(IndexType)));
+        // hint_write_fault((void*) ((size_type) new_index.data() + i * sizeof(IndexType)));
         new_index.push_back(indices_[col_indices[i]]);
     }
     df.load_index(std::move(new_index));

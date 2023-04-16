@@ -48,8 +48,8 @@ void DataFrame<I, H>::sort_common_(DataFrame<I, H> &df, CF &&comp_func)  {
 
     const size_type         idx_s = df.indices_.size();
     std::vector<size_type>  sorting_idxs(idx_s);
-    for(int i = 0; i < idx_s; ++i)
-        /*14 = 1.11%*/  hint_write_fault((void*)((uint64_t)sorting_idxs.data() + i * sizeof(size_type)));
+    // for(int i = 0; i < idx_s; ++i)
+    //     /*14 = 1.11%*/  hint_write_fault((void*)((uint64_t)sorting_idxs.data() + i * sizeof(size_type)));
     std::fill(sorting_idxs.begin(), sorting_idxs.end(), 0);
 
     std::iota(sorting_idxs.begin(), sorting_idxs.end(), 0);
