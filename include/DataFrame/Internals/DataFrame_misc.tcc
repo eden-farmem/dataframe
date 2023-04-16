@@ -678,16 +678,19 @@ operator() (const std::vector<T> &vec)  {
     const size_type vec_size = vec.size();
 
     new_col.reserve(std::min(sel_indices.size(), vec_size));
+    hint_write_fault_region_rdahead((void*) new_col.data(), new_col.size() * sizeof(T), EDEN_MAX_READAHEAD);
+    hint_read_fault_region_rdahead((void*) sel_indices.data(), sel_indices.size() * sizeof(IT), EDEN_MAX_READAHEAD);
 
     for (i = 0; i < sel_indices.size(); ++i)  {
-        /*3 = 8%*/ hint_read_fault((void*) &sel_indices[i]);
+        // /*3 = 8%*/ hint_read_fault((void*) &sel_indices[i]);
         const auto citer = sel_indices[i];
         const size_type index =
             citer >= 0 ? citer : static_cast<IT>(indices_size) + citer;
 
         if (index < vec_size) {
             // /*1 = 42%*/ hint_write_fault((void*) ((size_type) new_col.data() + i * sizeof(T)));
-            /*2 = 15%*/ hint_read_fault((void*) &vec[index]);
+            // /*2 = 15%*/ hint_read_fault((void*) &vec[index]);
+            /*2 = 15%*/ hint_seq_read_fault_rdahead((void*) &vec[index], EDEN_MAX_READAHEAD);
             new_col.push_back(vec[index]);
         }
         else
